@@ -97,7 +97,18 @@ class NaiveRandomSampler(RandomSampler):
 
 
 class DiversityPromotionSampler(NaiveRandomSampler):
+    """
+    This class implements uniform random sampling with distance constraints.
+    The main idea is that for all configurations, a random number of features
+    is selected in order to obtain a representative configuration sample.
+    This aims at avoiding bias introduced by the constraint solver.
 
+    Reference:
+    C. Kaltenecker, A. Grebhahn, N. Siegmund, J. Guo and S. Apel,
+    "Distance-Based Sampling of Software Configuration Spaces,"
+    2019 IEEE/ACM 41st International Conference on Software Engineering (ICSE),
+    Montreal, QC, Canada, 2019, pp. 1084-1094, doi: 10.1109/ICSE.2019.00112.
+    """
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
@@ -148,7 +159,7 @@ class DistanceBasedSampler(Sampler):
         for index in solvers.keys():
             solvers[index].add(clauses)
 
-            # TODO express distance constraint with the number of enabled features
+            # Distance constraint is expressed as the sum of enabled features
             solvers[index].add(
                 z3.Sum([z3.ZeroExt(n_options + 1, z3.Extract(i, i, target)) for i in range(n_options)]) == index
             )
@@ -206,6 +217,9 @@ class CoverageSampler(Sampler):
     Similar to t-wise sampling, but the combination of T features is de-selected and the total
     number of features is maximized. Here, we aim at identifying the influence caused by the absence
     of a feature combination.
+
+    References:
+    -
     """
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
@@ -381,3 +395,12 @@ def remove_colinearity(df):
                 break
 
     return df
+
+class BDDSampler():
+    def __init__(self):
+        pass
+
+class SymmetricSampler():
+    def __init__(self):
+        pass
+
