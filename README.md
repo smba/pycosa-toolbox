@@ -1,7 +1,7 @@
 # pyco-toolbox
 
 ## Installation
-```
+```bash
 # install current version
 pip install git+https://github.com/smba/pycosa.git@main 
 
