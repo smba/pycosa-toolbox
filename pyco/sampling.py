@@ -404,3 +404,65 @@ class SymmetricSampler():
     def __init__(self):
         pass
 
+class SampleStore():
+    '''
+    Wrapper class to work on data sets that have already been sampled.
+    '''
+    def __init__(self, df: pd.DataFrame, **kwargs):
+        self.df = df
+
+    def symmetric_sample(sample, options, size=30):
+        '''
+        This sampling strategy extracts pairs of configuratins that differ exactly in the
+        set of options specified. Therefore, one can estimate the effect of one or more options
+        by quantifying the pair-wise difference with respect to non-functional properties.
+        '''
+        # sample.index = np.arange(1, sample.shape[0] + 1)
+
+        # TODO Remove features that are mandatory
+        # nunique = sample.nunique()
+        # mandatory = nunique[nunique == 1].index
+        # sample.drop(columns=mandatory, inplace=True)
+
+        # initialize stuff and foo
+        enabled = []
+        disabled = []
+
+        dfs = []
+        for a, b in sample.groupby(by=options):
+            dfs.append(b.loc[:, ~sample.columns.isin(options)])
+
+        ons = dfs[1]
+        offs = dfs[0]
+
+        ons_index = ons.index.values
+        offs_index = offs.index.values
+
+        counter = 0
+        for i, on_row in enumerate(ons.values):
+            on_row = on_row  # * 1
+            on_rows = [on_row for j in range(offs.shape[0])]
+            off_matrix = offs.values  # *1
+
+            diff = np.sum(np.logical_xor(off_matrix, on_rows), axis=1)
+
+            min_i = np.argmin(diff)
+            if np.min(diff) <= 1:
+                enabled.append(ons_index[i])
+                disabled.append(offs_index[min_i])
+
+            counter += 1
+            if counter > size:
+                break
+
+        enabled_sample = sample.loc[enabled]
+        disabled_sample = sample.loc[disabled]
+
+        return (enabled_sample, disabled_sample)
+
+    def check_uniformity(self, columns):
+        '''
+        Run Kolmogorov-Smirnov test
+        '''
+        pass
+
