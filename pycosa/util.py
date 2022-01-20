@@ -2,7 +2,7 @@ import pandas as pd
 import networkx as nx
 import logging
 import math
-import numpy
+import numpy as np
 
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
