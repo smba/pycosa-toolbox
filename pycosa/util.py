@@ -10,7 +10,7 @@ def get_vif(df: pd.DataFrame):
       
     # calculate the variance variance inflation factor
     vif_data["vif"] = [
-        variance_inflation_factor(X.values, i) for i in range(len(X.columns))
+        variance_inflation_factor(df.values, i) for i in range(len(df.columns))
     ]
       
     return vif_data
