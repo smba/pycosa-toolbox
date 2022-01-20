@@ -1,7 +1,20 @@
 import pandas as pd
 import networkx as nx
 
-def remove_colinearity(df: pd.DataFrame):
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+def get_vif(df: pd.DataFrame):
+    
+    vif_data = pd.DataFrame()
+    vif_data["feature"] = df.columns
+      
+    # calculate the variance variance inflation factor
+    vif_data["vif"] = [
+        variance_inflation_factor(X.values, i) for i in range(len(X.columns))
+    ]
+      
+    return vif_data
+def remove_multicollinearity(df: pd.DataFrame):
 
     # courtesy by johannes
 

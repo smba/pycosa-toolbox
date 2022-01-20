@@ -28,6 +28,7 @@ install_requires = [
     "xmltodict",
     "pyeda",
     "networkx",
+    "statsmodels"
     "pyDOE2",
 ]
 

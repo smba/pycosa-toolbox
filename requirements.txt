@@ -5,3 +5,4 @@ networkx
 pyeda
 xmltodict
 pyDOE2
+statsmodels
