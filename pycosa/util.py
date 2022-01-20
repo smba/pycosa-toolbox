@@ -14,6 +14,7 @@ def get_vif(df: pd.DataFrame):
     ]
       
     return vif_data
+
 def remove_multicollinearity(df: pd.DataFrame):
 
     # courtesy by johannes
