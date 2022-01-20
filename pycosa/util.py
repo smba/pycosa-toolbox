@@ -1,9 +1,11 @@
 import pandas as pd
 import networkx as nx
+import logging
+import math
 
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
-def get_vif(df: pd.DataFrame):
+def get_vif(df: pd.DataFrame, threshold: float = 5.0):
     
     vif_data = pd.DataFrame()
     vif_data["feature"] = df.columns
@@ -12,6 +14,18 @@ def get_vif(df: pd.DataFrame):
     vif_data["vif"] = [
         variance_inflation_factor(df.values, i) for i in range(len(df.columns))
     ]
+    
+    # drop a warning, if VIF exceeds threshold
+    critical_features = vif_data[vif_data['vif'] == float('inf')]
+    
+    print(vif_data['vif'].index[np.isinf(vif_data['vif']).any(1)])
+    
+    for row in critical_features.iterrows():
+        feature = row[1]['feature']
+        vif = round(row[1]['vif'], 2)
+        logging.warning(
+            'Feature «{}» exceeds threshold (VIF = {})!'.format(feature, vif)
+        )
       
     return vif_data
 
