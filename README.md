@@ -1,5 +1,5 @@
 # pycosa-toolbox
-
+Pyhton library for configuration sampling and more.
 ## Installation
 ```bash
 # install current version
