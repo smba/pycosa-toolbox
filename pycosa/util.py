@@ -7,6 +7,12 @@ import numpy as np
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 def get_vif(df: pd.DataFrame, threshold: float = 5.0):
+    '''
+    Calculates the variance inflation factor (VIF) for each feature column. A VIF
+    value greater than a specific threshold (default: 5.0) can be considered problematic since
+    this column is likely correlated with other ones, i.e., we cannot properly 
+    infer the effect of this column.
+    '''
     
     vif_data = pd.DataFrame()
     vif_data["feature"] = df.columns
