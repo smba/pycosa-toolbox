@@ -6,19 +6,19 @@ with open("README.md", "r") as fh:
 setup_args = dict(
     name="pycosa",
     version="0.1.1",
-    author="smba",
+    author="Stefan Mühlbauer",
     author_email="s.muehlbauer@mars.ucc.ie",
-    description="configuration sampling toolbox in Python",
+    description="Configuration sampling toolbox in Python",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/smba/pyco-toolbox",
+    url="https://github.com/smba/pycosa-toolbox",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Creative Commons Zero v1.0 Universal",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.5",
+    python_requires=">=3.6",
 )
 
 install_requires = [
