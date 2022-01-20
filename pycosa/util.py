@@ -17,8 +17,6 @@ def get_vif(df: pd.DataFrame, threshold: float = 5.0):
     vif_data = pd.DataFrame()
     vif_data["feature"] = df.columns
       
-    print(df.columns)
-    print(df.values)
     # calculate the variance variance inflation factor
     vif_data["vif"] = [
         variance_inflation_factor(
