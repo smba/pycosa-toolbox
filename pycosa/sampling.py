@@ -350,7 +350,20 @@ class BDDSampler():
         pass
 
 class SymmetricSampler():
+    '''
+    This sampling strategy enables sampling pairs of configurations with one
+    or more configuration options enabled and disabled, respectively. This can
+    be useful when conducting sensitivity analysis on a single configuration
+    option or group thereof.
+    
+    For instance, to test whether a subject system is sensitive to option A, 
+    we sample 2*N configurations (N pairs) randomly under the condition that both 
+    configurations only differ in option A (or more options specified.)
+    '''
     def __init__(self):
+        pass
+    
+    def sample(self, n: int, options):
         pass
 
 class SampleStore():
