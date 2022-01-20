@@ -14,6 +14,7 @@ def int_to_config(i: int, n_options: int) -> np.ndarray:
 
     return list(reversed(binary))
 
+
 def mean_overlap_coefficient(S):
 
     nS = len(S)
@@ -25,49 +26,48 @@ def mean_overlap_coefficient(S):
     return sum(coefs) / len(coefs)
 
 
-
 class Sampler(ABC):
-
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         self.fm = fm
 
-        seed = kwargs.get('seed', 1)
+        seed = kwargs.get("seed", 1)
         np.random.seed(seed)
 
     @abstractmethod
     def sample(self, **kwargs) -> pd.DataFrame:
         pass
-    
+
     def constrain_enabled(self, options):
         pass
-    
+
     def constrain_disabled(self, options):
         pass
-    
+
     def constrain_min_enabled(self, options):
         pass
 
     def constrain_max_enabled(self, options):
         pass
-    
+
     def constrain_min_disabled(self, options):
         pass
-    
+
     def constrain_subset_enabled(self, options):
         pass
-    
+
     def constrain_subset_disabled(self, options):
         pass
+
 
 class RandomSampler(Sampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
-    
+
     def promote_diversity(self):
         pass  # stub for executing different techniques
 
-class NaiveRandomSampler(RandomSampler):
 
+class NaiveRandomSampler(RandomSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
@@ -87,10 +87,16 @@ class NaiveRandomSampler(RandomSampler):
                 solutions.append(solution)
 
             else:
-                print('Cannot find more than {} valid configurations'.format(len(solutions)))
+                print(
+                    "Cannot find more than {} valid configurations".format(
+                        len(solutions)
+                    )
+                )
                 break
 
-        solutions = np.vstack([int_to_config(s.as_long(), len(self.fm.index_map)) for s in solutions])[:, 1:]
+        solutions = np.vstack(
+            [int_to_config(s.as_long(), len(self.fm.index_map)) for s in solutions]
+        )[:, 1:]
         features = [self.fm.index_map[i] for i in self.fm.index_map]
         sample = pd.DataFrame(solutions, columns=features)
         return sample
@@ -109,11 +115,13 @@ class DiversityPromotionSampler(NaiveRandomSampler):
     2019 IEEE/ACM 41st International Conference on Software Engineering (ICSE),
     Montreal, QC, Canada, 2019, pp. 1084-1094, doi: 10.1109/ICSE.2019.00112.
     """
+
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
     def promote_diversity(self):
         self.fm.shuffle()
+
 
 class DistanceBasedSampler(Sampler):
 
@@ -129,6 +137,7 @@ class DistanceBasedSampler(Sampler):
     2019 IEEE/ACM 41st International Conference on Software Engineering (ICSE),
     Montreal, QC, Canada, 2019, pp. 1084-1094, doi: 10.1109/ICSE.2019.00112.
     """
+
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
@@ -161,7 +170,13 @@ class DistanceBasedSampler(Sampler):
 
             # Distance constraint is expressed as the sum of enabled features
             solvers[index].add(
-                z3.Sum([z3.ZeroExt(n_options + 1, z3.Extract(i, i, target)) for i in range(n_options)]) == index
+                z3.Sum(
+                    [
+                        z3.ZeroExt(n_options + 1, z3.Extract(i, i, target))
+                        for i in range(n_options)
+                    ]
+                )
+                == index
             )
 
         # set of existing solutions
@@ -185,10 +200,13 @@ class DistanceBasedSampler(Sampler):
             unsatisfiable = len(available_distances) == 0
             sample_sized_reached = len(solutions) == size
 
-        solutions = np.vstack([int_to_config(s.as_long(), len(self.fm.index_map)) for s in solutions])[:, 1:]
+        solutions = np.vstack(
+            [int_to_config(s.as_long(), len(self.fm.index_map)) for s in solutions]
+        )[:, 1:]
         features = [self.fm.index_map[i] for i in self.fm.index_map]
         sample = pd.DataFrame(solutions, columns=features)
         return sample
+
 
 class CoverageSampler(Sampler):
     """
@@ -221,12 +239,13 @@ class CoverageSampler(Sampler):
     References:
     -
     """
+
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
     def sample(self, t: int, negwise: bool = False, include_minimal: bool = False):
 
-        optionals = self.fm.find_optional_options()['optional']
+        optionals = self.fm.find_optional_options()["optional"]
 
         n_options = len(self.fm.index_map)
         target = self.fm.target
@@ -270,22 +289,24 @@ class CoverageSampler(Sampler):
                 constraints.append(solution != target)
                 solutions.append(solution)
 
-        solutions = np.vstack([int_to_config(s.as_long(), len(self.fm.index_map)) for s in solutions])[:, 1:]
+        solutions = np.vstack(
+            [int_to_config(s.as_long(), len(self.fm.index_map)) for s in solutions]
+        )[:, 1:]
         features = [self.fm.index_map[i] for i in self.fm.index_map]
         sample = pd.DataFrame(solutions, columns=features)
         return sample
 
-class GroupSampler(Sampler):
 
+class GroupSampler(Sampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
     def sample(self, n_groups=2, n_groupings=2):
 
         partitions, constraints = self.fm.to_partition_constraints(n_groups)
-        #print(len(self.fm.index_map))
-        '''detect optional features'''
-        optionals = self.fm.find_optional_options()['optional']
+        # print(len(self.fm.index_map))
+        """detect optional features"""
+        optionals = self.fm.find_optional_options()["optional"]
 
         mutexes = []
         for group in self.fm.find_alternative_options(optionals):
@@ -301,25 +322,62 @@ class GroupSampler(Sampler):
         # distribute mutexes - constraint
         # get partitions of mutexes
         # compute overlap coefficient
-        f = z3.Sum([
-            z3.Sum([z3.ZeroExt(n_features + 1, z3.Extract(m, m, p)) for p in partitions]) - 1 for m in mutexes
-        ])
+        f = z3.Sum(
+            [
+                z3.Sum(
+                    [
+                        z3.ZeroExt(n_features + 1, z3.Extract(m, m, p))
+                        for p in partitions
+                    ]
+                )
+                - 1
+                for m in mutexes
+            ]
+        )
         solver.minimize(f)
 
         # difference constraint: each optional feature can only be enabled once in one partition
         for i in optionals:
-            c = z3.Sum([z3.ZeroExt(n_features + 1, z3.Extract(i, i, p)) for p in partitions]) == 1
+            c = (
+                z3.Sum(
+                    [
+                        z3.ZeroExt(n_features + 1, z3.Extract(i, i, p))
+                        for p in partitions
+                    ]
+                )
+                == 1
+            )
             solver.add(c)
 
         # non-empty partitions are not allowed
         for p in partitions:
-            func = z3.Sum([z3.ZeroExt(n_features + 1, z3.Extract(i, i, p)) for i in optionals]) > 1
+            func = (
+                z3.Sum(
+                    [z3.ZeroExt(n_features + 1, z3.Extract(i, i, p)) for i in optionals]
+                )
+                > 1
+            )
             solver.add(func)
 
         # balance constraint
-        func = sum([
-            z3.Sum([(n_features // len(partitions) - z3.Sum([z3.ZeroExt(n_features + 1, z3.Extract(i, i, p)) for i in optionals]))]) for p in partitions
-        ])
+        func = sum(
+            [
+                z3.Sum(
+                    [
+                        (
+                            n_features // len(partitions)
+                            - z3.Sum(
+                                [
+                                    z3.ZeroExt(n_features + 1, z3.Extract(i, i, p))
+                                    for i in optionals
+                                ]
+                            )
+                        )
+                    ]
+                )
+                for p in partitions
+            ]
+        )
         solver.minimize(func)
 
         groupings = []
@@ -330,7 +388,9 @@ class GroupSampler(Sampler):
                 solution = solver.model()
                 for p in partitions:
                     group = solution[p]
-                    groups.append((list(int_to_config(group.as_long(), len(self.fm.index_map)))))
+                    groups.append(
+                        (list(int_to_config(group.as_long(), len(self.fm.index_map))))
+                    )
 
                 groupings.append(np.vstack(groups))
 
@@ -339,46 +399,49 @@ class GroupSampler(Sampler):
                     for q in partitions:
                         solver.add(p != solution[q])
             else:
-                raise ValueError('Number of groupings insufficient, increase by 1.')
+                raise ValueError("Number of groupings insufficient, increase by 1.")
 
         return groupings
 
 
-
-class BDDSampler():
+class BDDSampler:
     def __init__(self):
         pass
 
-class SymmetricSampler():
-    '''
+
+class SymmetricSampler:
+    """
     This sampling strategy enables sampling pairs of configurations with one
     or more configuration options enabled and disabled, respectively. This can
     be useful when conducting sensitivity analysis on a single configuration
     option or group thereof.
-    
-    For instance, to test whether a subject system is sensitive to option A, 
-    we sample 2*N configurations (N pairs) randomly under the condition that both 
+
+    For instance, to test whether a subject system is sensitive to option A,
+    we sample 2*N configurations (N pairs) randomly under the condition that both
     configurations only differ in option A (or more options specified.)
-    '''
+    """
+
     def __init__(self):
         pass
-    
+
     def sample(self, n: int, options):
         pass
 
-class SampleStore():
-    '''
+
+class SampleStore:
+    """
     Wrapper class to work on data sets that have already been sampled.
-    '''
+    """
+
     def __init__(self, df: pd.DataFrame, **kwargs):
         self.df = df
 
     def symmetric_sample(sample, options, size=30):
-        '''
+        """
         This sampling strategy extracts pairs of configuratins that differ exactly in the
         set of options specified. Therefore, one can estimate the effect of one or more options
         by quantifying the pair-wise difference with respect to non-functional properties.
-        '''
+        """
         # sample.index = np.arange(1, sample.shape[0] + 1)
 
         # TODO Remove features that are mandatory
@@ -423,8 +486,7 @@ class SampleStore():
         return (enabled_sample, disabled_sample)
 
     def check_uniformity(self, columns):
-        '''
+        """
         Run Kolmogorov-Smirnov test
-        '''
+        """
         pass
-

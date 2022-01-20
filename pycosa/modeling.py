@@ -5,7 +5,7 @@ import numpy as np
 import z3
 
 
-class CNFExpression():
+class CNFExpression:
     def __init__(self):
         self.clauses = None
         self.index_map = None
@@ -67,7 +67,7 @@ class CNFExpression():
             n_features = len(self.index_map)
 
             bitvec_constraints = []
-            target = z3.BitVec('target', n_features + 1)
+            target = z3.BitVec("target", n_features + 1)
 
             # add clauses of variability model
             for clause in self.clauses:
@@ -86,12 +86,14 @@ class CNFExpression():
             self.bitvec_constraints = bitvec_constraints
             self.target = target
 
-    def to_partition_constraints(self, nps = 2):
+    def to_partition_constraints(self, nps=2):
         if self.clauses is not None:
             n_features = len(self.index_map)
 
             bitvec_constraints = []
-            ps = [z3.BitVec('partition_{}'.format(i), n_features + 1) for i in range(nps)]
+            ps = [
+                z3.BitVec("partition_{}".format(i), n_features + 1) for i in range(nps)
+            ]
 
             for p in ps:
                 # add clauses of variability model
@@ -127,10 +129,9 @@ class CNFExpression():
             solver = z3.Solver()
             solver.add(self.bitvec_constraints)
 
-            constraint_i = z3.And([
-                z3.Extract(i, i, self.target) == 1,
-                z3.Extract(j, j, self.target) == 1
-            ])
+            constraint_i = z3.And(
+                [z3.Extract(i, i, self.target) == 1, z3.Extract(j, j, self.target) == 1]
+            )
             solver.add(constraint_i)
 
             if solver.check() == z3.unsat:
@@ -150,9 +151,7 @@ class CNFExpression():
 
             solver = z3.Solver()
             solver.add(self.bitvec_constraints)
-            solver.add(
-                z3.Extract(index, index, self.target) == 0
-            )
+            solver.add(z3.Extract(index, index, self.target) == 0)
             if solver.check() == z3.sat:
                 deselectable.append(index)
             else:
@@ -163,16 +162,10 @@ class CNFExpression():
         for index in deselectable:
             solver = z3.Solver()
             solver.add(self.bitvec_constraints)
-            solver.add(
-                z3.Extract(index, index, self.target) == 1
-            )
+            solver.add(z3.Extract(index, index, self.target) == 1)
             if solver.check() == z3.sat:
                 optionals.append(index)
             else:
                 dead.append(index)
 
-        return {
-            'optional': optionals,
-            'mandatory': mandatory,
-            'dead': dead
-        }
+        return {"optional": optionals, "mandatory": mandatory, "dead": dead}

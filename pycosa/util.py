@@ -6,37 +6,37 @@ import numpy as np
 
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
+
 def get_vif(df: pd.DataFrame, threshold: float = 5.0):
-    '''
+    """
     Calculates the variance inflation factor (VIF) for each feature column. A VIF
     value greater than a specific threshold (default: 5.0) can be considered problematic since
-    this column is likely correlated with other ones, i.e., we cannot properly 
+    this column is likely correlated with other ones, i.e., we cannot properly
     infer the effect of this column.
-    '''
-    
+    """
+
     vif_data = pd.DataFrame()
     vif_data["feature"] = df.columns
-      
+
     # calculate the variance variance inflation factor
     vif_data["vif"] = [
-        variance_inflation_factor(
-            df.values, i
-        ) for i in range(len(df.columns))
+        variance_inflation_factor(df.values, i) for i in range(len(df.columns))
     ]
-    
+
     # drop a warning, if VIF exceeds threshold or is infinite
     critical_features = vif_data[
-        (vif_data['vif'] == float('inf')) | (vif_data['vif'] > threshold)
+        (vif_data["vif"] == float("inf")) | (vif_data["vif"] > threshold)
     ]
-    
+
     for row in critical_features.iterrows():
-        feature = row[1]['feature']
-        vif = round(row[1]['vif'], 2)
+        feature = row[1]["feature"]
+        vif = round(row[1]["vif"], 2)
         logging.warning(
-            'Feature «{}» exceeds threshold (VIF = {})!'.format(feature, vif)
+            "Feature «{}» exceeds threshold (VIF = {})!".format(feature, vif)
         )
-      
+
     return vif_data
+
 
 def remove_multicollinearity(df: pd.DataFrame):
 
@@ -48,8 +48,8 @@ def remove_multicollinearity(df: pd.DataFrame):
 
     df = df.drop(columns=mandatory_or_dead)
 
-    if 'Unnamed: 0' in df.columns:
-        df = df.drop(columns=['Unnamed: 0'])
+    if "Unnamed: 0" in df.columns:
+        df = df.drop(columns=["Unnamed: 0"])
 
     df_configs = df
     alternative_ft = []
