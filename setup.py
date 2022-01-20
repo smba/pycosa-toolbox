@@ -4,11 +4,11 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup_args = dict(
-    name="pyco",
+    name="pycosa",
     version="0.0",
     author="smba",
-    author_email="",
-    description="configuration sampling in python",
+    author_email="s.muehlbauer@mars.ucc.ie",
+    description="configuration sampling toolbox in Python",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/smba/pyco-toolbox",
