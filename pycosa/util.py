@@ -67,5 +67,3 @@ def remove_multicollinearity(df: pd.DataFrame):
                 break
 
     return df
-
-remove_colinearity(pd.DataFrame({}))
