@@ -102,7 +102,19 @@ class SingleSampler(Sampler):
         None.
 
         """
-        pass
+        option_ids = [self.fm.feature_map[opt] for opt in options]
+        n_options = len(self.fm.feature_map)
+        
+        self.side_constraints.append(
+            z3.Sum(
+                    [
+                        z3.ZeroExt(n_options + 1, z3.Extract(opt_id, opt_id, self.fm.target))
+                        for opt_id in option_ids
+                    ]
+            ) >= minimum
+        )
+        
+        
 
     def constrain_max_enabled(self, options, maximum: int):
         """
@@ -120,7 +132,17 @@ class SingleSampler(Sampler):
         None.
 
         """
-        pass
+        option_ids = [self.fm.feature_map[opt] for opt in options]
+        n_options = len(self.fm.feature_map)
+        
+        self.side_constraints.append(
+            z3.Sum(
+                    [
+                        z3.ZeroExt(n_options + 1, z3.Extract(opt_id, opt_id, self.fm.target))
+                        for opt_id in option_ids
+                    ]
+            ) <= maximum
+        )
 
     def constrain_min_disabled(self, options, minimum: int):
         """
@@ -138,7 +160,8 @@ class SingleSampler(Sampler):
         None.
 
         """
-        pass
+        option_ids = [self.fm.feature_map[opt] for opt in options]
+        
     
     def constrain_max_disabled(self, options, maximum: int):
         """
@@ -156,7 +179,7 @@ class SingleSampler(Sampler):
         None.
 
         """
-        pass
+        option_ids = [self.fm.feature_map[opt] for opt in options]
     
 
 class RandomSampler(SingleSampler):
