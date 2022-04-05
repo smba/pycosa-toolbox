@@ -1,0 +1,11 @@
+z3-solver
+pandas
+numpy
+networkx
+pyeda
+xmltodict
+pyDOE2
+statsmodels
+matplotlib
+deprecated
+unittest
