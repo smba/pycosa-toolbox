@@ -32,7 +32,6 @@ install_requires = [
     "matplotlib",
     "pyDOE2",
     "deprecated",
-    "unittest",
 ]
 
 if __name__ == "__main__":
