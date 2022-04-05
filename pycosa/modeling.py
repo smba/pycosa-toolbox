@@ -256,6 +256,7 @@ class CNFExpression:
 
         return {"optional": optionals, "mandatory": mandatory, "dead": dead}
 
+    # TODO add side constraints
     def to_partition_constraints(self, nps=2):
         """
         This method is used for generating partioning constraints when
@@ -295,3 +296,4 @@ class CNFExpression:
                 bitvec_constraints.append(constraint)
 
             return ps, bitvec_constraints
+

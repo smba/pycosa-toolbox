@@ -29,31 +29,137 @@ class Sampler(ABC):
     def sample(self, **kwargs) -> pd.DataFrame:
         pass
 
+class MultiSampler(Sampler):
     """
+    Abstract wrapper to distinguish between sampling strategies that
+    yielf one / or more than one configuration per iteration (like this).
+    """
+    def __init__(self, fm: modeling.CNFExpression, **kwargs):
+        super().__init__(fm, **kwargs)
+
+class SingleSampler(Sampler):
+    """
+    Abstract wrapper to distinguish between sampling strategies that
+    yielf one (like this) / or more than one configuration per iteration.
+    """
+    def __init__(self, fm: modeling.CNFExpression, **kwargs):
+        self.side_constraints = []
+        super().__init__(fm, **kwargs)
+    
     def constrain_enabled(self, options):
-        pass
+        """
+        Specify that certain options need to be enabled.
+
+        Parameters
+        ----------
+        options : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        option_ids = [self.fm.feature_map[opt] for opt in options]
+        for opt_id in option_ids:
+            self.side_constraints.append(
+                z3.Extract(opt_id, opt_id, self.fm.target) == 1
+            )
 
     def constrain_disabled(self, options):
+        """
+        Specify that certain options need to be disabled.
+
+        Parameters
+        ----------
+        options : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        option_ids = [self.fm.feature_map[opt] for opt in options]
+        for opt_id in option_ids:
+            self.side_constraints.append(
+                z3.Extract(opt_id, opt_id, self.fm.target) == 0
+            )
+
+    def constrain_min_enabled(self, options, minimum: int):
+        """
+        Specify that a minimum number of certain options needs to be enabled.
+
+        Parameters
+        ----------
+        options : TYPE
+            DESCRIPTION.
+        minimum : int
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
         pass
 
-    def constrain_min_enabled(self, options):
+    def constrain_max_enabled(self, options, maximum: int):
+        """
+        Specify that a maximum number of certain options needs to be enabled.
+
+        Parameters
+        ----------
+        options : TYPE
+            DESCRIPTION.
+        maximum : int
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
         pass
 
-    def constrain_max_enabled(self, options):
+    def constrain_min_disabled(self, options, minimum: int):
+        """
+        Specify that a minimum number of certain options needs to be disabled.
+
+        Parameters
+        ----------
+        options : TYPE
+            DESCRIPTION.
+        minimum : int
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
         pass
+    
+    def constrain_max_disabled(self, options, maximum: int):
+        """
+        Specify that a maximum number of certain options needs to be disabled.
 
-    def constrain_min_disabled(self, options):
+        Parameters
+        ----------
+        options : TYPE
+            DESCRIPTION.
+        maximum : int
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
         pass
+    
 
-    def constrain_subset_enabled(self, options):
-        pass
-
-    def constrain_subset_disabled(self, options):
-        pass
-    """
-
-
-class RandomSampler(Sampler):
+class RandomSampler(SingleSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
@@ -131,7 +237,7 @@ class DiversityPromotionSampler(DFSSampler):
         self.fm.shuffle()
 
 
-class DistanceBasedSampler(Sampler):
+class DistanceBasedSampler(SingleSampler):
     """
     This class implements uniform random sampling with distance constraints.
     The main idea is that for all configurations, a random number of features
@@ -218,7 +324,7 @@ class DistanceBasedSampler(Sampler):
         return sample
 
 
-class CoverageSampler(Sampler):
+class CoverageSampler(SingleSampler):
     """
     This class implements sampling strategies with regard to main effects, such as
     single features' or interactions' influences. This comprises both feature-wise, t-wise
@@ -307,7 +413,7 @@ class CoverageSampler(Sampler):
         return sample
 
 
-class BDDSampler(Sampler):
+class BDDSampler(SingleSampler):
     """
     This class implements consistent uniform random sampling by partitioning the configuration space. The idea
     is to construct a binary decision diagram (BDD) for an existing feature model. Each distinct path in the BDD
@@ -361,9 +467,9 @@ class BDDSampler(Sampler):
         # TODO: validate sample with SMT solver
 
         return out_sample
+    
 
-
-class ElementaryEffectSampler(Sampler):
+class ElementaryEffectSampler(MultiSampler):
     """
     This sampling strategy enables sampling pairs of configurations with one
     or more configuration options enabled and disabled, respectively. This can
