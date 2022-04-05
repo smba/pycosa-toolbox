@@ -44,6 +44,12 @@ class SingleSampler(Sampler):
     """
     Abstract wrapper to distinguish between sampling strategies that
     yielf one (like this) / or more than one configuration per iteration.
+    
+    The method provided by this wrapper are only intendd to be used when
+    using guided sampling, i.e., sampling from a subset of the entire 
+    variability/feature model. In addition, you can use these methods as a 
+    shortcut to depict non-trivial constraints, such as "of these 8 options, no more than
+    4 can be enabled at the same time".
     """
 
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
@@ -311,6 +317,10 @@ class DFSSampler(RandomSampler):
 
             solver = z3.Solver()
             solver.add(self.fm.bitvec_constraints)
+            
+            # add side constraints 
+            solver.add(self.side_constraints)
+            
             for solution in solutions:
                 solver.add(self.fm.target != solution)
 
@@ -401,7 +411,10 @@ class DistanceBasedSampler(SingleSampler):
         solvers = {i: z3.Solver() for i in range(1, n_options)}
         for index in solvers.keys():
             solvers[index].add(clauses)
-
+            
+            # add side constraints 
+            solvers[index].add(self.side_constraints)
+            
             # Distance constraint is expressed as the sum of enabled features
             solvers[index].add(
                 z3.Sum(
@@ -492,6 +505,9 @@ class CoverageSampler(SingleSampler):
 
             # add feature model clauses
             optimizer.add(self.fm.bitvec_constraints)
+            
+            # add side constraints 
+            optimizer.add(self.side_constraints)
 
             # add previous solutions as constraints
             for solution in solutions:

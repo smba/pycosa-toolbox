@@ -19,6 +19,18 @@ class TestBDDSampler(unittest.TestCase):
         self.assertTrue(True, "msg")
 
 
+class TesDFSSamplerSampler(unittest.TestCase):
+    def setUp(self):
+        self.fm = modeling.CNFExpression()
+        self.fm.from_dimacs("_test_data/feature_models/h2.dimacs")
+
+    def test_sample(self):
+        sampler = sampling.DFSSampler(self.fm)
+        sampler.constrain_disabled(['COMPRESS'])
+        sample = sampler.sample(30)
+        self.assertTrue(sample['COMPRESS'].values.sum() == 0)
+
+
 class TestElementaryEffectSampler(unittest.TestCase):
     def setUp(self):
         self.fm = modeling.CNFExpression()
