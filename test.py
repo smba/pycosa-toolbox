@@ -14,9 +14,11 @@ class TestBDDSampler(unittest.TestCase):
         self.fm.from_dimacs("_test_data/feature_models/h2.dimacs")
 
     def test_sample(self):
+        
         sampler = sampling.BDDSampler(self.fm)
-
-        self.assertTrue(True, "msg")
+        sampler.constrain_disabled(['COMPRESS'])
+        sample = sampler.sample(30)
+        #print(sample['COMPRESS'].values*1)
 
 
 class TesDFSSamplerSampler(unittest.TestCase):

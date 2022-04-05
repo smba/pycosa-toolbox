@@ -586,10 +586,41 @@ class BDDSampler(SingleSampler):
             n_free_options = n_options - len(p)
             p_sample_size = int(sample_size * props[i])
 
-            sample = np.random.choice([0, 1], size=(p_sample_size, n_options))
+            sample = []
+            while len(sample) < p_sample_size:
+                candidate_config = np.random.choice([0, 1], size=n_options)
+                
+                # Theoretically, all solutions up to this point should be valid, yet we do not consider
+                # the side constraints when constructing the BDD. Thus, we need to validate the solutions 
+                # with a SMT solver .. :/
+                
+                solver = z3.Solver()
+                
+                # Contrary to sampling, we ONLY check side constraints
+                solver.add(self.side_constraints)
+                
+                # add configuration candidate
+                for opt_id in range(len(candidate_config)):
+                    solver.add(
+                        z3.Extract(opt_id, opt_id, self.fm.target) == int(candidate_config[opt_id])
+                    )
+                
+                if solver.check() == z3.sat:
+                    sample.append(candidate_config)
+                    #print('Das hat geklappt.', candidate_config[self.fm.feature_map['COMPRESS']])
 
-            sample = pd.DataFrame(sample, columns=self.fm.feature_map.keys())
+                else:
+                    pass#print('Das hat nicht geklappt.', candidate_config[self.fm.feature_map['COMPRESS']])
 
+            sample = np.vstack(sample)
+            print(sample[:, self.fm.feature_map['COMPRESS']])
+            
+            columns = ['bener']
+            columns += [self.fm.index_map[j] for j in sorted(self.fm.index_map.keys())]
+            print(columns[11])
+            sample = pd.DataFrame(sample, columns=columns[1:])
+            
+            print(sample['COMPRESS'].values)
             for feature in p:
                 sample[feature] = p[feature]
 
@@ -597,8 +628,6 @@ class BDDSampler(SingleSampler):
 
         out_sample = pd.concat(samples)
         out_sample = out_sample.astype(bool)
-
-        # TODO: validate sample with SMT solver
 
         return out_sample
 
