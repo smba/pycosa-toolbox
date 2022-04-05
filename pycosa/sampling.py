@@ -29,23 +29,27 @@ class Sampler(ABC):
     def sample(self, **kwargs) -> pd.DataFrame:
         pass
 
+
 class MultiSampler(Sampler):
     """
     Abstract wrapper to distinguish between sampling strategies that
     yielf one / or more than one configuration per iteration (like this).
     """
+
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
+
 
 class SingleSampler(Sampler):
     """
     Abstract wrapper to distinguish between sampling strategies that
     yielf one (like this) / or more than one configuration per iteration.
     """
+
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         self.side_constraints = []
         super().__init__(fm, **kwargs)
-    
+
     def constrain_enabled(self, options):
         """
         Specify that certain options need to be enabled.
@@ -104,17 +108,18 @@ class SingleSampler(Sampler):
         """
         option_ids = [self.fm.feature_map[opt] for opt in options]
         n_options = len(self.fm.feature_map)
-        
+
         self.side_constraints.append(
             z3.Sum(
-                    [
-                        z3.ZeroExt(n_options + 1, z3.Extract(opt_id, opt_id, self.fm.target))
-                        for opt_id in option_ids
-                    ]
-            ) >= minimum
+                [
+                    z3.ZeroExt(
+                        n_options + 1, z3.Extract(opt_id, opt_id, self.fm.target)
+                    )
+                    for opt_id in option_ids
+                ]
+            )
+            >= minimum
         )
-        
-        
 
     def constrain_max_enabled(self, options, maximum: int):
         """
@@ -134,14 +139,17 @@ class SingleSampler(Sampler):
         """
         option_ids = [self.fm.feature_map[opt] for opt in options]
         n_options = len(self.fm.feature_map)
-        
+
         self.side_constraints.append(
             z3.Sum(
-                    [
-                        z3.ZeroExt(n_options + 1, z3.Extract(opt_id, opt_id, self.fm.target))
-                        for opt_id in option_ids
-                    ]
-            ) <= maximum
+                [
+                    z3.ZeroExt(
+                        n_options + 1, z3.Extract(opt_id, opt_id, self.fm.target)
+                    )
+                    for opt_id in option_ids
+                ]
+            )
+            <= maximum
         )
 
     def constrain_min_disabled(self, options, minimum: int):
@@ -161,8 +169,20 @@ class SingleSampler(Sampler):
 
         """
         option_ids = [self.fm.feature_map[opt] for opt in options]
-        
-    
+        n_options = len(self.fm.feature_map)
+
+        self.side_constraints.append(
+            z3.Sum(
+                [
+                    z3.ZeroExt(
+                        n_options + 1, z3.Extract(opt_id, opt_id, self.fm.target)
+                    )
+                    for opt_id in option_ids
+                ]
+            )
+            <= len(options) - minimum
+        )
+
     def constrain_max_disabled(self, options, maximum: int):
         """
         Specify that a maximum number of certain options needs to be disabled.
@@ -180,7 +200,82 @@ class SingleSampler(Sampler):
 
         """
         option_ids = [self.fm.feature_map[opt] for opt in options]
-    
+        n_options = len(self.fm.feature_map)
+
+        self.side_constraints.append(
+            z3.Sum(
+                [
+                    z3.ZeroExt(
+                        n_options + 1, z3.Extract(opt_id, opt_id, self.fm.target)
+                    )
+                    for opt_id in option_ids
+                ]
+            )
+            >= len(options) - maximum
+        )
+
+    def constrain_subset_enabled(self, options, n: int):
+        """
+        Specify that a specific number of certain options needs to be enabled.
+
+        Parameters
+        ----------
+        options : TYPE
+            DESCRIPTION.
+        maximum : int
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        option_ids = [self.fm.feature_map[opt] for opt in options]
+        n_options = len(self.fm.feature_map)
+
+        self.side_constraints.append(
+            z3.Sum(
+                [
+                    z3.ZeroExt(
+                        n_options + 1, z3.Extract(opt_id, opt_id, self.fm.target)
+                    )
+                    for opt_id in option_ids
+                ]
+            )
+            == n
+        )
+
+    def constrain_subset_disabled(self, options, n: int):
+        """
+        Specify that a specific number of certain options needs to be disabled.
+
+        Parameters
+        ----------
+        options : TYPE
+            DESCRIPTION.
+        maximum : int
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        option_ids = [self.fm.feature_map[opt] for opt in options]
+        n_options = len(self.fm.feature_map)
+
+        self.side_constraints.append(
+            z3.Sum(
+                [
+                    z3.ZeroExt(
+                        n_options + 1, z3.Extract(opt_id, opt_id, self.fm.target)
+                    )
+                    for opt_id in option_ids
+                ]
+            )
+            == len(options) - n
+        )
+
 
 class RandomSampler(SingleSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
@@ -490,7 +585,7 @@ class BDDSampler(SingleSampler):
         # TODO: validate sample with SMT solver
 
         return out_sample
-    
+
 
 class ElementaryEffectSampler(MultiSampler):
     """
@@ -502,19 +597,16 @@ class ElementaryEffectSampler(MultiSampler):
     For instance, to test whether a subject system is sensitive to option A,
     we sample 2*N configurations (N pairs) randomly under the condition that both
     configurations only differ in option A (or more options specified.)
-    
+
     Reference:
-    Saltelli, Andrea, et al. Global sensitivity analysis: the primer. 
+    Saltelli, Andrea, et al. Global sensitivity analysis: the primer.
     John Wiley & Sons, 2008. (Chapters 2.6 and 3)
     """
 
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
-    def sample(self, 
-               options: Sequence[str],
-               max_size: int = 30
-        ):
+    def sample(self, options: Sequence[str], max_size: int = 30):
 
         # TODO sample like coverage-based sampler
         # TODO sample like DistanceBased or DiversityPromotion Sampler
@@ -532,7 +624,7 @@ class ElementaryEffectSampler(MultiSampler):
         solution_constraints = []
 
         i = 0
-        while len(solutions['enabled']) < max_size and i < max_size * 10:
+        while len(solutions["enabled"]) < max_size and i < max_size * 10:
             i += 1
             # Generate two identical 'targets'
             ps, constraints = self.fm.to_partition_constraints(2)
@@ -601,7 +693,7 @@ class ElementaryEffectSampler(MultiSampler):
             )
 
             if solver.check() == z3.sat:
-                
+
                 enabled_configuration = solver.model()[ps[0]]
                 disabled_configuration = solver.model()[ps[1]]
 

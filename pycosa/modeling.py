@@ -296,4 +296,3 @@ class CNFExpression:
                 bitvec_constraints.append(constraint)
 
             return ps, bitvec_constraints
-
