@@ -8,3 +8,4 @@ pyDOE2
 statsmodels
 matplotlib
 pytest
+deprecated
