@@ -29,16 +29,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
         # Display the Python version being used
+      - name: Update pip
+        run: |
+          python3 -m pip install --upgrade pip
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
         # Install the package using the setup.py
       - name: Install package
         run: python setup.py install
         # Install pytest (you can use some other testing utility)
-      - name: Install unittest
-        run: |
-          python3 -m pip install --upgrade pip
-          pip3 install unittest
         # Run the tests. I'm using pytest and the file is in the tests directory.
       - name: Run tests
-        run: python3 test.py
+        run: python test.py
