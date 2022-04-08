@@ -676,6 +676,7 @@ class ElementaryEffectSampler(MultiSampler):
 
         solution_constraints = []
 
+        available_distances = set(list(range(1, n_options)))
         i = 0
         while len(solutions["enabled"]) < max_size:
 
@@ -723,9 +724,9 @@ class ElementaryEffectSampler(MultiSampler):
 
             # Add constraints:
             # Number of configuration options enabled
-            available_distances = list(range(1, n_options))
+            #available_distances = list(range(1, n_options))
 
-            dist_1 = np.random.choice(available_distances)
+            dist_1 = np.random.choice(list(available_distances))
             dist_2 = dist_1 - len(options)
 
             # dist_1 for ps[0]
@@ -765,7 +766,7 @@ class ElementaryEffectSampler(MultiSampler):
                 solution_constraints.append(enabled_configuration != ps[1])
                 solution_constraints.append(disabled_configuration != ps[1])
             else:
-                pass
+                available_distances = available_distances - set([dist_1])
 
         solutions["enabled"] = np.vstack(
             [
