@@ -681,7 +681,7 @@ class ElementaryEffectSampler(MultiSampler):
         while len(solutions["enabled"]) < max_size:
 
             if i > max_size * 10:
-                print('exceeded timeout')
+                print("exceeded timeout")
                 break
 
             i += 1
@@ -721,10 +721,9 @@ class ElementaryEffectSampler(MultiSampler):
                     == z3.Extract(opt_id, opt_id, ps[1])
                 )
 
-
             # Add constraints:
             # Number of configuration options enabled
-            #available_distances = list(range(1, n_options))
+            # available_distances = list(range(1, n_options))
             dist_1 = np.random.choice(list(available_distances))
 
             # dist_1 for ps[0]
@@ -737,7 +736,6 @@ class ElementaryEffectSampler(MultiSampler):
                 )
                 == int(dist_1)
             )
-
 
             if solver.check() == z3.sat:
 

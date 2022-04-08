@@ -88,10 +88,10 @@ class TestElementaryEffectSampler(unittest.TestCase):
         sampler = sampling.ElementaryEffectSampler(self.fm)
         n = 30
         options = [
-            'OPTIMIZE_DISTINCT',
-            'OPTIMIZE_IN_SELECT',
-            'IGNORE_CATALOGS',
-            'COMPRESS'
+            "OPTIMIZE_DISTINCT",
+            "OPTIMIZE_IN_SELECT",
+            "IGNORE_CATALOGS",
+            "COMPRESS",
         ]
         en, dis = sampler.sample(
             options=options,
@@ -99,12 +99,9 @@ class TestElementaryEffectSampler(unittest.TestCase):
         )
 
         for opt in options:
-            self.assertTrue(
-                en[opt].sum() == 30
-            )
-            self.assertTrue(
-                dis[opt].sum() == 0
-            )
+            self.assertTrue(en[opt].sum() == 30)
+            self.assertTrue(dis[opt].sum() == 0)
+
 
 if __name__ == "__main__":
     unittest.main()
