@@ -21,18 +21,8 @@ setup_args = dict(
     python_requires=">=3.8",
 )
 
-install_requires = [
-    "numpy",
-    "pandas",
-    "z3-solver",
-    "xmltodict",
-    "pyeda",
-    "networkx",
-    "statsmodels",
-    "matplotlib",
-    "pyDOE2",
-    "deprecated",
-]
+with open('requirements.txt') as f:
+    required = f.read().splitlines()
 
 if __name__ == "__main__":
-    setuptools.setup(**setup_args, install_requires=install_requires)
+    setuptools.setup(**setup_args, install_requires=required)
