@@ -205,7 +205,7 @@ class CNFExpression:
             ).tolist()
             self.__to_bitvec()
 
-    def find_alternative_options(self, optional_options: None):
+    def find_alternative_options(self, optional_options = None):
 
         if optional_options is None:
             optional_options = self.find_optional_options()
