@@ -3,6 +3,8 @@ import unittest
 import pycosa.modeling as modeling
 import pycosa.sampling as sampling
 
+import matplotlib.pyplot as plt
+
 """
 Testing should include aspects like
 - Sample size
@@ -84,16 +86,25 @@ class TestElementaryEffectSampler(unittest.TestCase):
 
     def test_sample(self):
         sampler = sampling.ElementaryEffectSampler(self.fm)
+        n = 30
+        options = [
+            'OPTIMIZE_DISTINCT',
+            'OPTIMIZE_IN_SELECT',
+            'IGNORE_CATALOGS',
+            'COMPRESS'
+        ]
         en, dis = sampler.sample(
-            options=[
-                "OPTIMIZE_TWO_EQUALS",
-                "DEFRAG_ALWAYS",
-                "COMPRESS",
-                "RECOMPILE_ALWAYS",
-            ],
-            size=50,
+            options=options,
+            size=n,
         )
 
+        for opt in options:
+            self.assertTrue(
+                en[opt].sum() == 30
+            )
+            self.assertTrue(
+                dis[opt].sum() == 0
+            )
 
 if __name__ == "__main__":
     unittest.main()
