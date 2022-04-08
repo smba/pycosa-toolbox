@@ -1,12 +1,10 @@
-from typing import Sequence
 import itertools
+from typing import Sequence
+
 import networkx as nx
 import numpy as np
 import z3
-
 from deprecated import deprecated
-
-import networkx as nx
 from pyeda.inter import expr, expr2bdd
 
 

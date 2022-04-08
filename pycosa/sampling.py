@@ -1,13 +1,12 @@
-import z3
-import pycosa.modeling as modeling
+import itertools
+from abc import ABC, abstractmethod
+from typing import Sequence
+
 import numpy as np
 import pandas as pd
-import itertools
-import networkx as nx
-from abc import ABC, abstractmethod
-import logging
+import z3
 
-from typing import Sequence
+import pycosa.modeling as modeling
 
 
 def int_to_config(i: int, n_options: int) -> np.ndarray:
@@ -15,7 +14,7 @@ def int_to_config(i: int, n_options: int) -> np.ndarray:
     offset = n_options + 1 - len(without_offset)
     binary = np.append(np.zeros(dtype=int, shape=offset), without_offset)
 
-    return list(reversed(binary))
+    return np.array(list(reversed(binary)))
 
 
 class Sampler(ABC):
@@ -44,10 +43,10 @@ class SingleSampler(Sampler):
     """
     Abstract wrapper to distinguish between sampling strategies that
     yielf one (like this) / or more than one configuration per iteration.
-    
+
     The method provided by this wrapper are only intendd to be used when
-    using guided sampling, i.e., sampling from a subset of the entire 
-    variability/feature model. In addition, you can use these methods as a 
+    using guided sampling, i.e., sampling from a subset of the entire
+    variability/feature model. In addition, you can use these methods as a
     shortcut to depict non-trivial constraints, such as "of these 8 options, no more than
     4 can be enabled at the same time".
     """
@@ -228,7 +227,7 @@ class SingleSampler(Sampler):
         ----------
         options : TYPE
             DESCRIPTION.
-        maximum : int
+        n : int
             DESCRIPTION.
 
         Returns
@@ -259,7 +258,7 @@ class SingleSampler(Sampler):
         ----------
         options : TYPE
             DESCRIPTION.
-        maximum : int
+        n : int
             DESCRIPTION.
 
         Returns
@@ -317,10 +316,10 @@ class DFSSampler(RandomSampler):
 
             solver = z3.Solver()
             solver.add(self.fm.bitvec_constraints)
-            
-            # add side constraints 
+
+            # add side constraints
             solver.add(self.side_constraints)
-            
+
             for solution in solutions:
                 solver.add(self.fm.target != solution)
 
@@ -411,10 +410,10 @@ class DistanceBasedSampler(SingleSampler):
         solvers = {i: z3.Solver() for i in range(1, n_options)}
         for index in solvers.keys():
             solvers[index].add(clauses)
-            
-            # add side constraints 
+
+            # add side constraints
             solvers[index].add(self.side_constraints)
-            
+
             # Distance constraint is expressed as the sum of enabled features
             solvers[index].add(
                 z3.Sum(
@@ -505,8 +504,8 @@ class CoverageSampler(SingleSampler):
 
             # add feature model clauses
             optimizer.add(self.fm.bitvec_constraints)
-            
-            # add side constraints 
+
+            # add side constraints
             optimizer.add(self.side_constraints)
 
             # add previous solutions as constraints
@@ -588,43 +587,34 @@ class BDDSampler(SingleSampler):
 
             sample = []
             while len(sample) < p_sample_size:
-                candidate_config = np.random.choice([0, 1], size=n_options)
-                
+                candidate_config = np.random.choice([0, 1], size=n_options + 1)
+
                 # Theoretically, all solutions up to this point should be valid, yet we do not consider
-                # the side constraints when constructing the BDD. Thus, we need to validate the solutions 
+                # the side constraints when constructing the BDD. Thus, we need to validate the solutions
                 # with a SMT solver .. :/
-                
                 solver = z3.Solver()
-                
+
                 # Contrary to sampling, we ONLY check side constraints
                 solver.add(self.side_constraints)
-                
+
                 # add configuration candidate
-                for opt_id in range(len(candidate_config)):
+                for opt_id in range(1, len(candidate_config)):
                     solver.add(
-                        z3.Extract(opt_id, opt_id, self.fm.target) == int(candidate_config[opt_id])
+                        z3.Extract(opt_id, opt_id, self.fm.target)
+                        == int(candidate_config[opt_id])
                     )
-                
+
                 if solver.check() == z3.sat:
                     sample.append(candidate_config)
-                    #print('Das hat geklappt.', candidate_config[self.fm.feature_map['COMPRESS']])
-
-                else:
-                    pass#print('Das hat nicht geklappt.', candidate_config[self.fm.feature_map['COMPRESS']])
 
             sample = np.vstack(sample)
-            print(sample[:, self.fm.feature_map['COMPRESS']])
-            
-            columns = ['bener']
-            columns += [self.fm.index_map[j] for j in sorted(self.fm.index_map.keys())]
-            print(columns[11])
-            sample = pd.DataFrame(sample, columns=columns[1:])
-            
-            print(sample['COMPRESS'].values)
-            for feature in p:
-                sample[feature] = p[feature]
 
-            samples.append(sample)
+            df = pd.DataFrame()
+            for col in self.fm.feature_map:
+                p = self.fm.feature_map[col]
+                df[col] = sample[:, p]
+
+            samples.append(df)
 
         out_sample = pd.concat(samples)
         out_sample = out_sample.astype(bool)
