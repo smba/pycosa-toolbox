@@ -677,7 +677,12 @@ class ElementaryEffectSampler(MultiSampler):
         solution_constraints = []
 
         i = 0
-        while len(solutions["enabled"]) < max_size and i < max_size * 10:
+        while len(solutions["enabled"]) < max_size:
+
+            if i > max_size * 10:
+                print('exceeded timeout')
+                break
+
             i += 1
             # Generate two identical 'targets'
             ps, constraints = self.fm.to_partition_constraints(2)
