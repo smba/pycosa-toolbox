@@ -715,6 +715,7 @@ class ElementaryEffectSampler(MultiSampler):
                     == z3.Extract(opt_id, opt_id, ps[1])
                 )
 
+            '''
             # Add constraints:
             # Number of configuration options enabled
             available_distances = list(range(1, n_options))
@@ -743,6 +744,7 @@ class ElementaryEffectSampler(MultiSampler):
                 )
                 == int(dist_2)
             )
+            '''
 
             if solver.check() == z3.sat:
 
