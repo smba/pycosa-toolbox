@@ -281,6 +281,15 @@ class SingleSampler(Sampler):
             == len(options) - n
         )
 
+        def _solutions_to_dataframe(solutions):
+            solutions = np.vstack(
+                [int_to_config(s.as_long(), len(self.fm.index_map)) for s in solutions]
+            )[:, 1:]
+            features = [self.fm.index_map[i] for i in self.fm.index_map]
+            sample = pd.DataFrame(solutions, columns=features)
+
+            return sample
+
 
 class RandomSampler(SingleSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
@@ -335,11 +344,7 @@ class DFSSampler(RandomSampler):
                 )
                 break
 
-        solutions = np.vstack(
-            [int_to_config(s.as_long(), len(self.fm.index_map)) for s in solutions]
-        )[:, 1:]
-        features = [self.fm.index_map[i] for i in self.fm.index_map]
-        sample = pd.DataFrame(solutions, columns=features)
+        sample = self._solutions_to_dataframe(solutions)
         return sample
 
 
@@ -446,11 +451,7 @@ class DistanceBasedSampler(SingleSampler):
             unsatisfiable = len(available_distances) == 0
             sample_sized_reached = len(solutions) == size
 
-        solutions = np.vstack(
-            [int_to_config(s.as_long(), len(self.fm.index_map)) for s in solutions]
-        )[:, 1:]
-        features = [self.fm.index_map[i] for i in self.fm.index_map]
-        sample = pd.DataFrame(solutions, columns=features)
+        sample = self._solutions_to_dataframe(solutions)
         return sample
 
 
@@ -538,11 +539,7 @@ class CoverageSampler(SingleSampler):
                 constraints.append(solution != target)
                 solutions.append(solution)
 
-        solutions = np.vstack(
-            [int_to_config(s.as_long(), len(self.fm.index_map)) for s in solutions]
-        )[:, 1:]
-        features = [self.fm.index_map[i] for i in self.fm.index_map]
-        sample = pd.DataFrame(solutions, columns=features)
+        sample = self._solutions_to_dataframe(solutions)
         return sample
 
 
@@ -643,8 +640,7 @@ class ElementaryEffectSampler(MultiSampler):
 
     def sample(self, options: Sequence[str], max_size: int = 30):
 
-        # TODO sample like coverage-based sampler
-        # TODO sample like DistanceBased or DiversityPromotion Sampler
+        # TODO refactor method signature
 
         n_options = len(self.fm.index_map)
         target = self.fm.target
@@ -770,6 +766,8 @@ class OfflineSampler:
     """
 
     def __init__(self, df: pd.DataFrame, **kwargs):
+
+        df = df.sample(frac=1).reset_index(drop=True)
         self.df = df
 
     def elementary_effect_sample(
@@ -782,8 +780,6 @@ class OfflineSampler:
         This method implements a ElementaryEffectSampler for off-line data.
         """
         X = self.df
-
-        # TODO guarantee diversity promotion from sample
 
         # Check whether sample is boolean-ish
         if safety_check:

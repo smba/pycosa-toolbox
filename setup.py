@@ -31,7 +31,6 @@ install_requires = [
     "statsmodels",
     "matplotlib",
     "pyDOE2",
-    "deprecated",
 ]
 
 if __name__ == "__main__":

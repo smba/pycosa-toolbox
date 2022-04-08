@@ -7,5 +7,4 @@ xmltodict
 pyDOE2
 statsmodels
 matplotlib
-deprecated
 pytest

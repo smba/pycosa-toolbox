@@ -205,7 +205,6 @@ class CNFExpression:
             ).tolist()
             self.__to_bitvec()
 
-    @deprecated(reason="This is legacy code used for group sampling")
     def find_alternative_options(self, optional_options):
         mutex_graph = nx.Graph()
         for i, j in itertools.combinations(optional_options, 2):
@@ -226,7 +225,6 @@ class CNFExpression:
 
         return mutex_groups
 
-    @deprecated(reason="This is legacy code used for group sampling")
     def find_optional_options(self):
 
         deselectable = []
