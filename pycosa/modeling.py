@@ -205,7 +205,11 @@ class CNFExpression:
             ).tolist()
             self.__to_bitvec()
 
-    def find_alternative_options(self, optional_options):
+    def find_alternative_options(self, optional_options: None):
+
+        if optional_options is None:
+            optional_options = self.find_optional_options()
+
         mutex_graph = nx.Graph()
         for i, j in itertools.combinations(optional_options, 2):
             solver = z3.Solver()
