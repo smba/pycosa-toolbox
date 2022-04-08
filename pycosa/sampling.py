@@ -766,6 +766,7 @@ class ElementaryEffectSampler(MultiSampler):
                 solution_constraints.append(enabled_configuration != ps[1])
                 solution_constraints.append(disabled_configuration != ps[1])
             else:
+                print(available_distances)
                 available_distances = available_distances - set([dist_1])
 
         solutions["enabled"] = np.vstack(
