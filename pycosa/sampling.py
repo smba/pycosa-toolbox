@@ -744,7 +744,7 @@ class ElementaryEffectSampler(MultiSampler):
                 )
                 == int(dist_2)
             )
-            
+
 
             if solver.check() == z3.sat:
 
