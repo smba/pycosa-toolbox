@@ -13,5 +13,5 @@ Update an existing installation:
 ```bash
 pip install --upgrade git+https://github.com/smba/pycosa-toolbox.git@main 
 ```
-## Documentation / Getting Started
-Let us be a little humble; let us think that the ~~truth~~ documentation may not perhaps be entirely with us.
+## Documentation
+TBD
