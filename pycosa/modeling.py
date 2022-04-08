@@ -4,7 +4,7 @@ from typing import Sequence
 import networkx as nx
 import numpy as np
 import z3
-from deprecated import deprecated
+
 from pyeda.inter import expr, expr2bdd
 
 
