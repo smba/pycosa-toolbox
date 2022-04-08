@@ -20,13 +20,8 @@ def int_to_config(i: int, n_options: int) -> np.ndarray:
 class Sampler(ABC):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         self.fm = fm
-
         seed = kwargs.get("seed", 1)
         np.random.seed(seed)
-
-    @abstractmethod
-    def sample(self, **kwargs) -> pd.DataFrame:
-        pass
 
 
 class MultiSampler(Sampler):
@@ -37,6 +32,10 @@ class MultiSampler(Sampler):
 
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
+
+    @abstractmethod
+    def sample(self, **kwargs) -> pd.DataFrame:
+        pass
 
 
 class SingleSampler(Sampler):
@@ -54,6 +53,10 @@ class SingleSampler(Sampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         self.side_constraints = []
         super().__init__(fm, **kwargs)
+
+    @abstractmethod
+    def sample(self, **kwargs) -> pd.DataFrame:
+        pass
 
     def constrain_enabled(self, options):
         """
@@ -281,14 +284,14 @@ class SingleSampler(Sampler):
             == len(options) - n
         )
 
-        def _solutions_to_dataframe(solutions):
-            solutions = np.vstack(
-                [int_to_config(s.as_long(), len(self.fm.index_map)) for s in solutions]
-            )[:, 1:]
-            features = [self.fm.index_map[i] for i in self.fm.index_map]
-            sample = pd.DataFrame(solutions, columns=features)
+    def _solutions_to_dataframe(self, solutions):
+        solutions = np.vstack(
+            [int_to_config(s.as_long(), len(self.fm.index_map)) for s in solutions]
+        )[:, 1:]
+        features = [self.fm.index_map[i] for i in self.fm.index_map]
+        sample = pd.DataFrame(solutions, columns=features)
 
-            return sample
+        return sample
 
 
 class RandomSampler(SingleSampler):
@@ -317,7 +320,12 @@ class DFSSampler(RandomSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
-    def sample(self, n: int):
+    def sample(self, **kwargs):
+
+        if "size" in kwargs:
+            n = kwargs["size"]
+        else:
+            raise AttributeError("Missing argument 'size'.")
 
         solutions = []
         for i in range(n):
@@ -389,16 +397,12 @@ class DistanceBasedSampler(SingleSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
-    @staticmethod
-    def __hamming(v1, v2, target):
-        """
-        Auxiliary method that implements the Hamming or Manhattan distance for bit vectors.
-        """
-        h = v1 ^ v2
-        s = max(target.bit_length(), v1.size().bit_length())
-        return z3.Sum([z3.ZeroExt(s, z3.Extract(i, i, h)) for i in range(v1.size())])
+    def sample(self, **kwargs):
 
-    def sample(self, size: int):
+        if "size" in kwargs:
+            size = kwargs["size"]
+        else:
+            raise AttributeError("Missing argument 'size'.")
 
         n_options = len(self.fm.index_map)
 
@@ -490,7 +494,15 @@ class CoverageSampler(SingleSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
-    def sample(self, t: int, negwise: bool = False, include_minimal: bool = False):
+    def sample(self, **kwargs):
+
+        # TODO include minimal configuration
+
+        if "t" not in kwargs:
+            raise AttributeError("Missing argument 't'.")
+        t = kwargs["t"]
+
+        negwise = False if "negwise" not in kwargs else kwargs["negwise"]
 
         optionals = self.fm.find_optional_options()["optional"]
 
@@ -564,7 +576,11 @@ class BDDSampler(SingleSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
-    def sample(self, sample_size: int):
+    def sample(self, **kwargs):
+
+        if "size" not in kwargs:
+            raise AttributeError("Missing argument 'size'.")
+        sample_size = kwargs["size"]
 
         partitions = self.fm._compute_partitions()
         n_options = len(self.fm.index_map)
@@ -638,7 +654,13 @@ class ElementaryEffectSampler(MultiSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
-    def sample(self, options: Sequence[str], max_size: int = 30):
+    def sample(self, **kwargs):
+        if "options" not in kwargs:
+            raise AttributeError("Missing argument 'options'.")
+        if "size" not in kwargs:
+            raise AttributeError("Missing argument 'size'.")
+        options = kwargs["options"]
+        max_size = kwargs["size"]
 
         # TODO refactor method signature
 
@@ -662,7 +684,6 @@ class ElementaryEffectSampler(MultiSampler):
 
             # Common constraints:
             # differing in options
-
             solver = z3.Solver()
 
             # Add constraint:
@@ -765,7 +786,7 @@ class OfflineSampler:
     are third-party data sets.
     """
 
-    def __init__(self, df: pd.DataFrame, **kwargs):
+    def __init__(self, df: pd.DataFrame):
 
         df = df.sample(frac=1).reset_index(drop=True)
         self.df = df
@@ -828,3 +849,7 @@ class OfflineSampler:
 
         # Report the indexes of pairs
         return enabled_idx, disabled_idx
+
+
+if __name__ == "__main__":
+    pass

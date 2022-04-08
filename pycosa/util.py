@@ -190,3 +190,7 @@ def construct_interaction_terms(
     if drop_old:
         df = df.drop(columns=[i for i in interacting_columns] + [categorical_column])
     return df
+
+
+if __name__ == "__main__":
+    pass

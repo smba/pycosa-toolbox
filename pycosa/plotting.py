@@ -75,7 +75,4 @@ def mirrored_histogram(
 
 
 if __name__ == "__main__":
-    a = np.random.normal(90, 8, size=1000)
-    b = np.random.laplace(30, 4, size=1000)
-
-    mirrored_histogram(a, b, "before", "after", xlabel="Throughput", medians=True)
+    pass
