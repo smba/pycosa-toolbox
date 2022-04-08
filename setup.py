@@ -21,7 +21,7 @@ setup_args = dict(
     python_requires=">=3.8",
 )
 
-with open('requirements.txt') as f:
+with open("requirements.txt") as f:
     required = f.read().splitlines()
 
 if __name__ == "__main__":
