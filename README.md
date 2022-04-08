@@ -5,7 +5,6 @@ Loose collection of implementations for configuration sampling, learning configu
 
 Install the latest version:
 ```bash
-# install current version
 pip install git+https://github.com/smba/pycosa-toolbox.git@main 
 ```
 
