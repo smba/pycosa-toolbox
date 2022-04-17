@@ -816,8 +816,8 @@ class OfflineSampler:
         if enabled is None or disabled is None:
             return None, None
 
-        start = enabled if len(enabled) < len(disabled) else disabled
-        compare_with = disabled if len(enabled) < len(disabled) else enabled
+        start = enabled if len(enabled) <= len(disabled) else disabled
+        compare_with = disabled if len(enabled) <= len(disabled) else enabled
 
         en = []
         dis = []
@@ -831,7 +831,7 @@ class OfflineSampler:
                 if len(cmp) > 0:
                     en.append(idx)
                     dis.append(cmp.index[0])
-
+                    
         return en, dis
 
 

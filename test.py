@@ -3,6 +3,9 @@ import unittest
 import pycosa.modeling as modeling
 import pycosa.sampling as sampling
 
+import numpy as np
+import pandas as pd
+
 import matplotlib.pyplot as plt
 
 """
@@ -13,7 +16,6 @@ Testing should include aspects like
     - maximum not exceeded
 - Uniqueness
 """
-
 
 class TestSingleSampler(unittest.TestCase):
     def setUp(self):
@@ -102,6 +104,25 @@ class TestElementaryEffectSampler(unittest.TestCase):
             self.assertTrue(en[opt].sum() == 30)
             self.assertTrue(dis[opt].sum() == 0)
 
+class TestOfflineSampler(unittest.TestCase):
+    
+    def setUp(self):
+        np.random.seed(1)
+        df = np.random.choice([0,1], size=(1000, 4))
+        df = np.unique(df, axis=0)
+        df = pd.DataFrame(df, columns = [chr(65+i) for i in range(4)])
+        self.df = df
+    
+    def test_ee_sampling(self):
+        sampler = sampling.OfflineSampler(self.df)
+        en, dis = sampler.elementary_effect_sample(['A', 'B'])
+        
+        self.assertTrue(len(en) == len(dis))
+        self.assertTrue(en != dis, 'Indexes are identical!')
+        for i in range(len(en)):
+            self.assertTrue(en[i] != dis[i], '{} != {}'.format(en[i], dis[i]))
+        
 
 if __name__ == "__main__":
     unittest.main()
+    
