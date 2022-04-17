@@ -795,10 +795,10 @@ class OfflineSampler:
 
         # some caching
         columns = df.columns
-        
+
         # Drop duplicates (should not be necessary, but still useful)
         df = df.drop_duplicates()
-        
+
         enabled = None
         disabled = None
         for key, group in df.groupby(options):
@@ -812,13 +812,13 @@ class OfflineSampler:
                     enabled = group.drop(columns=options)
                 elif not any(key):
                     disabled = group.drop(columns=options)
-    
+
         if enabled is None or disabled is None:
             return None, None
-    
+
         start = enabled if len(enabled) < len(disabled) else disabled
         compare_with = enabled if len(enabled) > len(disabled) else disabled
-    
+
         en = []
         dis = []
         for idx in start.index:
@@ -827,11 +827,11 @@ class OfflineSampler:
                 cmp = compare_with
                 for col in start.columns:
                     cmp = cmp[cmp[col] == cfg[col]]
-                
+
                 if len(cmp) > 0:
                     en.append(idx)
                     dis.append(cmp.index[0])
-        
+
         return df.loc[en], df.loc[dis]
 
 
