@@ -13,7 +13,6 @@ def int_to_config(i: int, n_options: int) -> np.ndarray:
     without_offset = np.array([int(x) for x in np.binary_repr(i)])
     offset = n_options + 1 - len(without_offset)
     binary = np.append(np.zeros(dtype=int, shape=offset), without_offset)
-
     return np.array(list(reversed(binary)))
 
 
@@ -788,60 +787,52 @@ class OfflineSampler:
         self,
         options,
         max_size: int = 30,
-        safety_check: bool = True,
     ):
         """
         This method implements a ElementaryEffectSampler for off-line data.
         """
-        X = self.df
+        df = self.df
 
-        # Check whether sample is boolean-ish
-        if safety_check:
-            dtypes = np.unique(X.dtypes)
-            uvalues = np.unique(X)
-            if len(dtypes) == 1 and dtypes[0] == np.dtype("bool"):
-                pass
-            elif len(uvalues) == 2 and (0 in uvalues and 1 in uvalues):
-                pass
-            else:
-                raise AttributeError(
-                    "Sample contains numeric values, these are not supported yet!"
-                )
-
-        # Some caching
-        columns = X.columns
-
+        # some caching
+        columns = df.columns
+        
         # Drop duplicates (should not be necessary, but still useful)
-        X = X.drop_duplicates()
-
-        # Search for duplicates ignoring the options specified
-        columns_for_duplicates = set(X.columns) - set(options)
-        dupes = X.duplicated(subset=columns_for_duplicates)
-        X = X[dupes]
-
-        # The following boolean operations require different representation
-        X = X.astype(bool)
-
-        # Filter rows where specified columns are either 0 or 1
-        X["all_enabled"] = np.bitwise_and.reduce(X[options], 1)
-        X["all_disabled"] = np.bitwise_and.reduce(np.invert(X[options]), 1)
-
-        # Get rows where specified columns are consistently enabled/disabled
-        enabled = X[X["all_enabled"]][columns]
-        disabled = X[X["all_disabled"]][columns]
-
-        # Find matching pairs to report indexes for
-        df = pd.concat([enabled, disabled])
-        enabled_idx = []
-        disabled_idx = []
-
-        for _, sample in df.groupby(by=list(set(columns) - set(options))):
-            if sample.shape[0] == 2 and len(enabled_idx) < max_size:
-                enabled_idx.append(sample.index[0])
-                disabled_idx.append(sample.index[1])
-
-        # Report the indexes of pairs
-        return enabled_idx, disabled_idx
+        df = df.drop_duplicates()
+        
+        enabled = None
+        disabled = None
+        for key, group in df.groupby(options):
+            if len(options) == 1:
+                if key:
+                    enabled = group.drop(columns=options)
+                else:
+                    disabled = group.drop(columns=options)
+            else:
+                if all(key):
+                    enabled = group.drop(columns=options)
+                elif not any(key):
+                    disabled = group.drop(columns=options)
+    
+        if enabled is None or disabled is None:
+            return None, None
+    
+        start = enabled if len(enabled) < len(disabled) else disabled
+        compare_with = enabled if len(enabled) > len(disabled) else disabled
+    
+        en = []
+        dis = []
+        for idx in start.index:
+            if len(en) < max_size:
+                cfg = start.loc[idx]
+                cmp = compare_with
+                for col in start.columns:
+                    cmp = cmp[cmp[col] == cfg[col]]
+                
+                if len(cmp) > 0:
+                    en.append(idx)
+                    dis.append(cmp.index[0])
+        
+        return df.loc[en], df.loc[dis]
 
 
 if __name__ == "__main__":
