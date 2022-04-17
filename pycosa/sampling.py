@@ -832,7 +832,7 @@ class OfflineSampler:
                     en.append(idx)
                     dis.append(cmp.index[0])
 
-        return df.loc[en], df.loc[dis]
+        return en, dis
 
 
 if __name__ == "__main__":
