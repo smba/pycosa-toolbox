@@ -817,7 +817,7 @@ class OfflineSampler:
             return None, None
 
         start = enabled if len(enabled) < len(disabled) else disabled
-        compare_with = enabled if len(enabled) > len(disabled) else disabled
+        compare_with = disabled if len(enabled) < len(disabled) else enabled
 
         en = []
         dis = []
