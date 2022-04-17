@@ -17,6 +17,7 @@ Testing should include aspects like
 - Uniqueness
 """
 
+
 class TestSingleSampler(unittest.TestCase):
     def setUp(self):
         self.fm = modeling.CNFExpression()
@@ -104,25 +105,24 @@ class TestElementaryEffectSampler(unittest.TestCase):
             self.assertTrue(en[opt].sum() == 30)
             self.assertTrue(dis[opt].sum() == 0)
 
+
 class TestOfflineSampler(unittest.TestCase):
-    
     def setUp(self):
         np.random.seed(1)
-        df = np.random.choice([0,1], size=(1000, 4))
+        df = np.random.choice([0, 1], size=(1000, 4))
         df = np.unique(df, axis=0)
-        df = pd.DataFrame(df, columns = [chr(65+i) for i in range(4)])
+        df = pd.DataFrame(df, columns=[chr(65 + i) for i in range(4)])
         self.df = df
-    
+
     def test_ee_sampling(self):
         sampler = sampling.OfflineSampler(self.df)
-        en, dis = sampler.elementary_effect_sample(['A', 'B'])
-        
+        en, dis = sampler.elementary_effect_sample(["A", "B"])
+
         self.assertTrue(len(en) == len(dis))
-        self.assertTrue(en != dis, 'Indexes are identical!')
+        self.assertTrue(en != dis, "Indexes are identical!")
         for i in range(len(en)):
-            self.assertTrue(en[i] != dis[i], '{} != {}'.format(en[i], dis[i]))
-        
+            self.assertTrue(en[i] != dis[i], "{} != {}".format(en[i], dis[i]))
+
 
 if __name__ == "__main__":
     unittest.main()
-    

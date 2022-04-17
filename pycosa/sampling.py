@@ -831,7 +831,7 @@ class OfflineSampler:
                 if len(cmp) > 0:
                     en.append(idx)
                     dis.append(cmp.index[0])
-                    
+
         return en, dis
 
 
