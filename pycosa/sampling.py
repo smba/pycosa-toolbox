@@ -97,7 +97,7 @@ class SingleSampler(Sampler):
                 z3.Extract(opt_id, opt_id, self.fm.target) == 0
             )
 
-    def constrain_min_enabled(self, options, minimum: int):
+    def constrain_min_enabled(self, options: Sequence[str], minimum: int):
         """
         Specify that a minimum number of certain options needs to be enabled.
 
@@ -128,7 +128,7 @@ class SingleSampler(Sampler):
             >= minimum
         )
 
-    def constrain_max_enabled(self, options, maximum: int):
+    def constrain_max_enabled(self, options: Sequence[str], maximum: int):
         """
         Specify that a maximum number of certain options needs to be enabled.
 
@@ -159,7 +159,7 @@ class SingleSampler(Sampler):
             <= maximum
         )
 
-    def constrain_min_disabled(self, options, minimum: int):
+    def constrain_min_disabled(self, options: Sequence[str], minimum: int):
         """
         Specify that a minimum number of certain options needs to be disabled.
 
@@ -190,7 +190,7 @@ class SingleSampler(Sampler):
             <= len(options) - minimum
         )
 
-    def constrain_max_disabled(self, options, maximum: int):
+    def constrain_max_disabled(self, options: Sequence[str], maximum: int):
         """
         Specify that a maximum number of certain options needs to be disabled.
 
@@ -221,7 +221,7 @@ class SingleSampler(Sampler):
             >= len(options) - maximum
         )
 
-    def constrain_subset_enabled(self, options, n: int):
+    def constrain_subset_enabled(self, options: Sequence[str], n: int):
         """
         Specify that a specific number of certain options needs to be enabled.
 
@@ -252,7 +252,7 @@ class SingleSampler(Sampler):
             == n
         )
 
-    def constrain_subset_disabled(self, options, n: int):
+    def constrain_subset_disabled(self, options: Sequence[str], n: int):
         """
         Specify that a specific number of certain options needs to be disabled.
 
@@ -319,15 +319,10 @@ class DFSSampler(RandomSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
-    def sample(self, **kwargs):
-
-        if "size" in kwargs:
-            n = kwargs["size"]
-        else:
-            raise AttributeError("Missing argument 'size'.")
+    def sample(self, size: int,  **kwargs):
 
         solutions = []
-        for i in range(n):
+        for i in range(size):
             self.promote_diversity()
 
             solver = z3.Solver()
@@ -404,9 +399,6 @@ class DistanceBasedSampler(SingleSampler):
             raise AttributeError("Missing argument 'size'.")
 
         n_options = len(self.fm.index_map)
-
-        # add one option since bitvector is longer than n_opt
-        origin = z3.BitVecVal("0" * (n_options + 1), n_options)
 
         clauses = self.fm.bitvec_constraints
         target = self.fm.target
@@ -493,13 +485,9 @@ class CoverageSampler(SingleSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
-    def sample(self, **kwargs):
+    def sample(self, t: int, **kwargs):
 
         # TODO include minimal configuration
-
-        if "t" not in kwargs:
-            raise AttributeError("Missing argument 't'.")
-        t = kwargs["t"]
 
         negwise = False if "negwise" not in kwargs else kwargs["negwise"]
 
@@ -575,11 +563,7 @@ class BDDSampler(SingleSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
-    def sample(self, **kwargs):
-
-        if "size" not in kwargs:
-            raise AttributeError("Missing argument 'size'.")
-        sample_size = kwargs["size"]
+    def sample(self, size: int, **kwargs):
 
         partitions = self.fm._compute_partitions()
         n_options = len(self.fm.index_map)
@@ -595,7 +579,7 @@ class BDDSampler(SingleSampler):
             # how much each partition contributes to the entire pool
             # of samples
             n_free_options = n_options - len(p)
-            p_sample_size = int(sample_size * props[i])
+            p_sample_size = int(size * props[i])
 
             sample = []
             while len(sample) < p_sample_size:
@@ -653,15 +637,9 @@ class ElementaryEffectSampler(MultiSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
-    def sample(self, **kwargs):
-        if "options" not in kwargs:
-            raise AttributeError("Missing argument 'options'.")
-        if "size" not in kwargs:
-            raise AttributeError("Missing argument 'size'.")
-        options = kwargs["options"]
-        max_size = kwargs["size"]
+    def sample(self, size: int, options: Sequence[str], **kwargs):
 
-        # TODO refactor method signature
+         # TODO refactor method signature
 
         n_options = len(self.fm.index_map)
         target = self.fm.target
@@ -677,9 +655,9 @@ class ElementaryEffectSampler(MultiSampler):
 
         available_distances = set(list(range(1, n_options)))
         i = 0
-        while len(solutions["enabled"]) < max_size:
+        while len(solutions["enabled"]) < size:
 
-            if i > max_size * 10:
+            if i > size * 10:
                 print("exceeded timeout")
                 break
 
@@ -785,7 +763,7 @@ class OfflineSampler:
 
     def elementary_effect_sample(
         self,
-        options,
+        options: Sequence[str],
         max_size: int = 30,
     ):
         """
