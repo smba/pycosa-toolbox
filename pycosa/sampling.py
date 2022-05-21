@@ -319,7 +319,7 @@ class DFSSampler(RandomSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
-    def sample(self, size: int,  **kwargs):
+    def sample(self, size: int, **kwargs):
 
         solutions = []
         for i in range(size):
@@ -639,7 +639,7 @@ class ElementaryEffectSampler(MultiSampler):
 
     def sample(self, size: int, options: Sequence[str], **kwargs):
 
-         # TODO refactor method signature
+        # TODO refactor method signature
 
         n_options = len(self.fm.index_map)
         target = self.fm.target
