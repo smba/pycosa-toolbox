@@ -108,21 +108,21 @@ class TestElementaryEffectSampler(unittest.TestCase):
 
 class TestOfflineSampler(unittest.TestCase):
     def setUp(self):
-        
+
         N = 10
         options = np.arange(N)
         self.options = options
-        
+
         np.random.seed(1)
         df = np.random.choice([0, 1], size=(10000, N))
         df = np.unique(df, axis=0)
-        
+
         df = pd.DataFrame(df, columns=options)
         self.df = df
 
     def test_ee_sampling(self):
         sampler = sampling.OfflineSampler(self.df)
-        
+
         # feature wise
         for o in self.options:
             print(o)
@@ -134,11 +134,11 @@ class TestOfflineSampler(unittest.TestCase):
             for i in range(len(en)):
                 self.assertTrue(en[i] != dis[i], "{} != {}".format(en[i], dis[i]))
 
-            # compare configurations 
+            # compare configurations
             for i in range(len(en)):
                 eni = self.df.loc[en[i]].values
                 disi = self.df.loc[dis[i]].values
-                
+
                 self.assertTrue(eni[o] != disi[o])
 
 
