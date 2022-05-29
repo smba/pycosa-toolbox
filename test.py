@@ -126,7 +126,7 @@ class TestOfflineSampler(unittest.TestCase):
         # feature wise
         for o in self.options:
             print(o)
-            en, dis = sampler.elementary_effect_sample([o], max_size=50)
+            en, dis = sampler.elementary_effect_sample([o], size=50)
 
             # show that the indices are different
             self.assertTrue(len(en) == len(dis))
