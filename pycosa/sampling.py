@@ -761,8 +761,10 @@ class OfflineSampler:
         df = df.sample(frac=1).reset_index(drop=True)
         self.df = df
 
-    def ee_sample(df: pd.DataFrame, options: Sequence[object], size: int = 100):
-
+    def elementary_effect_sample(self, options: Sequence[object], size: int = 100):
+    
+        df = self.df
+            
         df["selected"] = df[options].all(axis=1)
         df["deselected"] = ~df[options].any(axis=1)
 
