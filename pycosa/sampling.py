@@ -762,9 +762,9 @@ class OfflineSampler:
         self.df = df
 
     def elementary_effect_sample(self, options: Sequence[object], size: int = 100):
-    
+
         df = self.df
-            
+
         df["selected"] = df[options].all(axis=1)
         df["deselected"] = ~df[options].any(axis=1)
 
