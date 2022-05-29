@@ -761,54 +761,28 @@ class OfflineSampler:
         df = df.sample(frac=1).reset_index(drop=True)
         self.df = df
 
-    def elementary_effect_sample(
-        self,
-        options: Sequence[str],
-        max_size: int = 30,
-    ):
-        """
-        This method implements a ElementaryEffectSampler for off-line data.
-        """
-        df = self.df
+    def ee_sample(
+            df: pd.DataFrame, 
+            options: Sequence[object],
+            size: int = 100):
 
-        # some caching
-        columns = df.columns
+        df['selected'] = df[options].all(axis=1)
+        df['deselected'] = ~df[options].any(axis=1)
 
-        # Drop duplicates (should not be necessary, but still useful)
-        df = df.drop_duplicates()
+        drop_cols = options + ['selected', 'deselected']
+        enabled = df[df['selected']].drop(columns=drop_cols)
+        disabled = df[df['deselected']].drop(columns=drop_cols)
 
-        enabled = None
-        disabled = None
-        for key, group in df.groupby(options):
-            if len(options) == 1:
-                if key:
-                    enabled = group.drop(columns=options)
-                else:
-                    disabled = group.drop(columns=options)
-            else:
-                if all(key):
-                    enabled = group.drop(columns=options)
-                elif not any(key):
-                    disabled = group.drop(columns=options)
+        configs = pd.concat([enabled, disabled])
+        dups = configs[configs.duplicated(keep=False)]
 
-        if enabled is None or disabled is None:
-            return None, None
-
-        start = enabled if len(enabled) <= len(disabled) else disabled
-        compare_with = disabled if len(enabled) <= len(disabled) else enabled
-
-        en = []
-        dis = []
-        for idx in start.index:
-            if len(en) < max_size:
-                cfg = start.loc[idx]
-                cmp = compare_with
-                for col in start.columns:
-                    cmp = cmp[cmp[col] == cfg[col]]
-
-                if len(cmp) > 0:
-                    en.append(idx)
-                    dis.append(cmp.index[0])
+        en, dis = [], []
+        for rand, pair in dups.groupby(by=list(dups.columns)):
+            pair['selected'] = df.loc[pair.index]['selected']
+            pair = pair.sort_values(by='selected')
+            if pair.shape[0] == 2 and len(en) < size:
+                en.append(pair.index[0])
+                dis.append(pair.index[1])
 
         return en, dis
 
