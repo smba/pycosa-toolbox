@@ -761,25 +761,22 @@ class OfflineSampler:
         df = df.sample(frac=1).reset_index(drop=True)
         self.df = df
 
-    def ee_sample(
-            df: pd.DataFrame, 
-            options: Sequence[object],
-            size: int = 100):
+    def ee_sample(df: pd.DataFrame, options: Sequence[object], size: int = 100):
 
-        df['selected'] = df[options].all(axis=1)
-        df['deselected'] = ~df[options].any(axis=1)
+        df["selected"] = df[options].all(axis=1)
+        df["deselected"] = ~df[options].any(axis=1)
 
-        drop_cols = options + ['selected', 'deselected']
-        enabled = df[df['selected']].drop(columns=drop_cols)
-        disabled = df[df['deselected']].drop(columns=drop_cols)
+        drop_cols = options + ["selected", "deselected"]
+        enabled = df[df["selected"]].drop(columns=drop_cols)
+        disabled = df[df["deselected"]].drop(columns=drop_cols)
 
         configs = pd.concat([enabled, disabled])
         dups = configs[configs.duplicated(keep=False)]
 
         en, dis = [], []
         for rand, pair in dups.groupby(by=list(dups.columns)):
-            pair['selected'] = df.loc[pair.index]['selected']
-            pair = pair.sort_values(by='selected')
+            pair["selected"] = df.loc[pair.index]["selected"]
+            pair = pair.sort_values(by="selected")
             if pair.shape[0] == 2 and len(en) < size:
                 en.append(pair.index[0])
                 dis.append(pair.index[1])
