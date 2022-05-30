@@ -3,6 +3,8 @@ import unittest
 import pycosa.modeling as modeling
 import pycosa.sampling as sampling
 
+import itertools
+
 import numpy as np
 import pandas as pd
 
