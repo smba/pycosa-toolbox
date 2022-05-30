@@ -120,26 +120,54 @@ class TestOfflineSampler(unittest.TestCase):
         df = pd.DataFrame(df, columns=options)
         self.df = df
 
-    def test_ee_sampling(self):
+    def test_ee_sampling_optionwise(self):
         sampler = sampling.OfflineSampler(self.df)
 
         # feature wise
         for o in self.options:
-            print(o)
-            en, dis = sampler.elementary_effect_sample([o], size=50)
-
+            options = [o]
+            en, dis = sampler.elementary_effect_sample(options, size=5)         
+            
             # show that the indices are different
             self.assertTrue(len(en) == len(dis))
             self.assertTrue(en != dis, "Indexes are identical!")
             for i in range(len(en)):
                 self.assertTrue(en[i] != dis[i], "{} != {}".format(en[i], dis[i]))
 
-            # compare configurations
+            # show that option $o is different
             for i in range(len(en)):
-                eni = self.df.loc[en[i]].values
-                disi = self.df.loc[dis[i]].values
+                cfg1 = self.df.loc[en[i]]
+                cfg2 = self.df.loc[dis[i]]
+                self.assertTrue(cfg1[o] != cfg2[o])
+                
+                # check that configurations only differ in exactly one column
+                distance = np.count_nonzero(cfg1 != cfg2)
+                self.assertTrue(distance == 1)
+                
+    def test_ee_sampling_pairwise(self):
+        sampler = sampling.OfflineSampler(self.df)
 
-                self.assertTrue(eni[o] != disi[o])
+        # pairwise
+        for opt in itertools.combinations(self.options, 2):
+            options = list(opt)
+            en, dis = sampler.elementary_effect_sample(options, size=5)         
+            
+            # show that the indices are different
+            self.assertTrue(len(en) == len(dis))
+            self.assertTrue(en != dis, "Indexes are identical!")
+            for i in range(len(en)):
+                self.assertTrue(en[i] != dis[i], "{} != {}".format(en[i], dis[i]))
+
+            # show that options $o are different
+            for i in range(len(en)):
+                cfg1 = self.df.loc[en[i]]
+                cfg2 = self.df.loc[dis[i]]
+                for o in options:
+                    self.assertTrue(cfg1[o] != cfg2[o])
+                
+                # check that configurations only differ in exactly one column
+                distance = np.count_nonzero(cfg1 != cfg2)
+                self.assertTrue(distance == 2)
 
 
 if __name__ == "__main__":
