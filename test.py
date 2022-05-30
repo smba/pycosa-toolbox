@@ -126,8 +126,8 @@ class TestOfflineSampler(unittest.TestCase):
         # feature wise
         for o in self.options:
             options = [o]
-            en, dis = sampler.elementary_effect_sample(options, size=5)         
-            
+            en, dis = sampler.elementary_effect_sample(options, size=5)
+
             # show that the indices are different
             self.assertTrue(len(en) == len(dis))
             self.assertTrue(en != dis, "Indexes are identical!")
@@ -139,19 +139,19 @@ class TestOfflineSampler(unittest.TestCase):
                 cfg1 = self.df.loc[en[i]]
                 cfg2 = self.df.loc[dis[i]]
                 self.assertTrue(cfg1[o] != cfg2[o])
-                
+
                 # check that configurations only differ in exactly one column
                 distance = np.count_nonzero(cfg1 != cfg2)
                 self.assertTrue(distance == 1)
-                
+
     def test_ee_sampling_pairwise(self):
         sampler = sampling.OfflineSampler(self.df)
 
         # feature wise
         for opt in itertools.combinations(self.options, 2):
             options = list(opt)
-            en, dis = sampler.elementary_effect_sample(options, size=5)         
-            
+            en, dis = sampler.elementary_effect_sample(options, size=5)
+
             # show that the indices are different
             self.assertTrue(len(en) == len(dis))
             self.assertTrue(en != dis, "Indexes are identical!")
@@ -164,7 +164,7 @@ class TestOfflineSampler(unittest.TestCase):
                 cfg2 = self.df.loc[dis[i]]
                 for o in options:
                     self.assertTrue(cfg1[o] != cfg2[o])
-                
+
                 # check that configurations only differ in exactly one column
                 distance = np.count_nonzero(cfg1 != cfg2)
                 self.assertTrue(distance == 2)
