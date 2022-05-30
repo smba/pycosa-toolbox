@@ -757,10 +757,10 @@ class OfflineSampler:
     """
 
     def __init__(self, df: pd.DataFrame, shuffle=False):
-        
+
         if shuffle:
             df = df.sample(frac=1)
-            
+
         self.df = df
 
     def elementary_effect_sample(self, options: Sequence[object], size: int = 100):
