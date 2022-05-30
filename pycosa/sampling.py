@@ -756,14 +756,16 @@ class OfflineSampler:
     are third-party data sets.
     """
 
-    def __init__(self, df: pd.DataFrame):
-
-        df = df.sample(frac=1).reset_index(drop=True)
+    def __init__(self, df: pd.DataFrame, shuffle=False):
+        
+        if shuffle:
+            df = df.sample(frac=1)
+            
         self.df = df
 
     def elementary_effect_sample(self, options: Sequence[object], size: int = 100):
 
-        df = self.df
+        df = self.df.copy()
 
         df["selected"] = df[options].all(axis=1)
         df["deselected"] = ~df[options].any(axis=1)
