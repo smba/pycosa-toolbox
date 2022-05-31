@@ -2,6 +2,7 @@ import unittest
 
 import pycosa.modeling as modeling
 import pycosa.sampling as sampling
+import pycosa.util as util
 
 import itertools
 
@@ -171,6 +172,16 @@ class TestOfflineSampler(unittest.TestCase):
                 distance = np.count_nonzero(cfg1 != cfg2)
                 self.assertTrue(distance == 2)
 
+class UtilTester(unittest.TestCase):
+    def test_construct_categorical_variable(self):
+        df = pd.DataFrame(
+            np.random.choice(np.arange(10), size=(100, 10)),
+            columns = [str(i) for i in range(10)]
+        )
 
+        for c in df.columns:
+            util.construct_categorical_variable(data, col)
+                
+                
 if __name__ == "__main__":
     unittest.main()
