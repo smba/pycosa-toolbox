@@ -181,7 +181,7 @@ class UtilTester(unittest.TestCase):
         )
 
         for c in df.columns:
-            util.construct_categorical_variable(data, col)
+            df = util.construct_categorical_variable(df, c)
 
 
 if __name__ == "__main__":
