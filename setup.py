@@ -15,7 +15,7 @@ setup_args = dict(
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: MIT License",
+        "License :: AGPL License",
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.8",
