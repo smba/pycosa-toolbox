@@ -4,6 +4,8 @@ import logging
 import math
 import numpy as np
 
+from sklearn.preprocessing import OneHotEncoder
+
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 
@@ -93,10 +95,13 @@ def remove_multicollinearity(df: pd.DataFrame):
 
 
 def reconstruct_categorical_variable(
-    df: pd.DataFrame, replace_map: dict, new_option: str, drop_old: bool = True
-):
+        df: pd.DataFrame,
+        replace_map: dict,
+        new_option: str,
+        drop_old: bool = True
+    ):
     """
-    Reconstructs a numerical option that has been discretized.
+    Reconstructs a numerical option that has been discretized. 
 
     Parameters
     ----------
@@ -121,9 +126,8 @@ def reconstruct_categorical_variable(
 
     if drop_old:
         df = df.drop(columns=replace_map.keys())
-
+  
     return df
-
 
 def construct_categorical_variable(
     df: pd.DataFrame, categorical_column: str, drop_old: bool = True
@@ -147,50 +151,56 @@ def construct_categorical_variable(
         Transformed data frame with new columns.
 
     """
-
+    
     # get set of unique values
     unique_values = df[categorical_column].unique()
+    
+    oh_encoder = OneHotEncoder()
+    
+    encoded = oh_encoder.fit_transform(
+        df[categorical_column].values.reshape(-1, 1)
+    )
 
-    # create a new column in df for each unique value
-    for uvalue in unique_values:
-
-        index = df.index[df[categorical_column] == uvalue]
-        new_column = np.zeros(shape=(df.shape[0],))
-        new_column[index] = 1
-
-        column_name = "{}_{}".format(categorical_column, uvalue)
-        df[column_name] = new_column
-
+    expanded = pd.DataFrame(
+        encoded.todense().astype(bool), 
+        columns=['{}_{}'.format(categorical_column, i) for i in oh_encoder.categories_[0]]
+    
+    )
+    
+    # add new columns to dataframe (copy for performance reasons)
+    df = pd.concat([df.copy(), expanded], axis='columns')
+    
     if drop_old:
         df = df.drop(columns=[categorical_column])
 
     return df
 
-
 def construct_interaction_terms(
-    df: pd.DataFrame, categorical_column: str, sep: str = "__", drop_old: bool = True
-):
-
+        df: pd.DataFrame,
+        categorical_column: str,
+        sep: str = '__',
+        drop_old: bool = True
+    ):
+    
     # get set of unique values
     unique_values = df[categorical_column].unique()
-
+    
     interacting_columns = df.drop(columns=[categorical_column]).columns
-
+    
     for uvalue in unique_values:
         for icolumn in interacting_columns:
-            index = df.index[df[categorical_column] == uvalue]
+            index = df.index[
+                df[categorical_column] == uvalue
+            ]      
             new_column = np.zeros(shape=(df.shape[0],))
             new_column[index] = df.iloc[index][icolumn]
-
+            
+            
             # mask NaN as 0
             new_column = np.nan_to_num(new_column)
-            column_name = "{}{}{}".format(uvalue, sep, icolumn)
+            column_name = '{}{}{}'.format(uvalue, sep, icolumn)
             df[column_name] = new_column
-
+    
     if drop_old:
         df = df.drop(columns=[i for i in interacting_columns] + [categorical_column])
     return df
-
-
-if __name__ == "__main__":
-    pass
