@@ -391,12 +391,7 @@ class DistanceBasedSampler(SingleSampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
-    def sample(self, **kwargs):
-
-        if "size" in kwargs:
-            size = kwargs["size"]
-        else:
-            raise AttributeError("Missing argument 'size'.")
+    def sample(self, size: int, **kwargs):
 
         n_options = len(self.fm.index_map)
 
