@@ -648,7 +648,7 @@ class ElementaryEffectSampler(MultiSampler):
         solution_constraints = []
 
         available_distances = set(list(range(1, n_options)))
-        
+
         i = 0
         while len(solutions["enabled"]) < size:
 
@@ -701,10 +701,10 @@ class ElementaryEffectSampler(MultiSampler):
                 found_solutions = len(solutions)
                 raise lib.SatisfiabilityExhaustionError(
                     "Could not find more than {} pairs of \
-                    matching configurations ({} requested).".format(found_solutions, size)
+                    matching configurations ({} requested).".format(
+                        found_solutions, size
+                    )
                 )
-            
-            
 
             # dist_1 for ps[0]
             solver.add(
