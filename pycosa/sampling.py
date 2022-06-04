@@ -7,6 +7,7 @@ import pandas as pd
 import z3
 
 import pycosa.modeling as modeling
+import pycosa.lib as lib
 
 
 def int_to_config(i: int, n_options: int) -> np.ndarray:
@@ -634,8 +635,6 @@ class ElementaryEffectSampler(MultiSampler):
 
     def sample(self, size: int, options: Sequence[str], **kwargs):
 
-        # TODO refactor method signature
-
         n_options = len(self.fm.index_map)
         target = self.fm.target
         constraints = []
@@ -649,6 +648,7 @@ class ElementaryEffectSampler(MultiSampler):
         solution_constraints = []
 
         available_distances = set(list(range(1, n_options)))
+        
         i = 0
         while len(solutions["enabled"]) < size:
 
@@ -695,8 +695,16 @@ class ElementaryEffectSampler(MultiSampler):
 
             # Add constraints:
             # Number of configuration options enabled
-            # available_distances = list(range(1, n_options))
-            dist_1 = np.random.choice(list(available_distances))
+            if len(available_distances) > 0:
+                dist_1 = np.random.choice(list(available_distances))
+            else:
+                found_solutions = len(solutions)
+                raise lib.SatisfiabilityExhaustionError(
+                    "Could not find more than {} pairs of \
+                    matching configurations ({} requested).".format(found_solutions, size)
+                )
+            
+            
 
             # dist_1 for ps[0]
             solver.add(
