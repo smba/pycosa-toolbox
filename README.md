@@ -13,4 +13,4 @@ Update an existing installation:
 pip install --upgrade git+https://github.com/smba/pycosa-toolbox.git@main 
 ```
 ## Documentation
-TBD
+[Documentation on readthedocs](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
