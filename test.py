@@ -149,35 +149,39 @@ class TestOfflineSampler(unittest.TestCase):
                 distance = np.count_nonzero(cfg1 != cfg2)
                 self.assertTrue(distance == 2)
 
+
 class TestElementaryEffectSampler(unittest.TestCase):
-    
     def setUp(self):
-        
+
         # load feature models from test data
-        tdata = './_test_data/feature_models/'
+        tdata = "./_test_data/feature_models/"
         self.fms = []
         for file in os.listdir(tdata):
             path = tdata + file
             fm = modeling.CNFExpression()
             fm.from_dimacs(path)
             self.fms.append(fm)
-    
+
     def test_foo(self):
         for seed in range(10):
             for noptions in range(1, 8):
                 np.random.seed(seed)
                 for fm in self.fms:
-                    optionals = fm.find_optional_options()['optional']
-                    
+                    optionals = fm.find_optional_options()["optional"]
+
                     options = np.random.choice(optionals, size=noptions)
                     options = [fm.index_map[i] for i in options]
-                    
+
                     sampler = sampling.ElementaryEffectSampler(fm)
-                    
+
                     try:
                         en, dis = sampler.sample(10, options)
                     except lib.SatisfiabilityExhaustionError:
-                        print('exhausted at seed {} and #options of {}'.format(seed, noptions))
+                        print(
+                            "exhausted at seed {} and #options of {}".format(
+                                seed, noptions
+                            )
+                        )
 
 
 class UtilTester(unittest.TestCase):
