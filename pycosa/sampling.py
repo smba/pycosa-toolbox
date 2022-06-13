@@ -558,7 +558,7 @@ class BDDSampler(SingleSampler):
 
         # calculate proportional size for each partition
         all_configs = sum([2 ** (n_options - len(p)) for p in partitions])
-        
+
         # calculate probabilities of a random config being from a partition
         probs = [2 ** (n_options - len(p)) / all_configs for p in partitions]
 
@@ -569,8 +569,8 @@ class BDDSampler(SingleSampler):
             # how much each partition contributes to the entire pool
             # of samples
             n_free_options = n_options - len(p)
-            
-            # Calculate the number of configurations for this partition; 
+
+            # Calculate the number of configurations for this partition;
             # but at least one configuration per partition
             p_sample_size = int(size * probs[i])
             p_sample_size = max(1, p_sample_size)
