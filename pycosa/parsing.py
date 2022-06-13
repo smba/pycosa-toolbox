@@ -2,50 +2,12 @@
 # -*- coding: utf-8 -*-
 
 from typing import Sequence
+import xmltodict
 import z3
 
 class Parser:
     def __init__(self):
-        pass
-
-    def get_features(self) -> Sequence[int]:
-        pass
-
-    def parse(self, path: str) -> None:
-        pass
-
-
-class CNFExpression():
-
-    def __init__(self):
-        """
-        Wrapper class for boolean expressions. Since we 
-
-        Returns
-        -------
-        None.
-
-        """
-        pass
-
-
-class DimacsParser(Parser):
-
-    def __init__(self, ):
-        """
-
-
-        Parameters
-        ----------
-         : TYPE
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
-        """
-
+        
         self._index_to_feature = None
         self._feature_to_index = None
         self.clauses = []
@@ -130,6 +92,45 @@ class DimacsParser(Parser):
         """
         return self._clauses
 
+    def get_features(self) -> Sequence[str]:
+        
+        return list(self._feature_to_index.keys())
+
+    def parse(self, path: str) -> None:
+        pass
+
+
+class CNFExpression():
+
+    def __init__(self):
+        """
+        Wrapper class for boolean expressions. Since we 
+
+        Returns
+        -------
+        None.
+
+        """
+        pass
+
+
+class DimacsParser(Parser):
+
+    def __init__(self, ):
+        """
+
+
+        Parameters
+        ----------
+         : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+
     def parse(self, path: str) -> None:
         """
 
@@ -163,12 +164,7 @@ class DimacsParser(Parser):
             if start == 'c':  # c = comment, used for specifying a feature
                 line = line.split(' ')
                 index = line[1]
-                feature_name = line[2]
-
-                # populate mappings
-                self._index_to_feature[index] = feature_name
-                self._feature_to_index[feature_name] = index
-
+                feature_name = line[2]pritn
             elif start == 'p':  # p = .. something, used for validation
                 line = line.split(' ')
                 n_options = int(line[2])
@@ -228,10 +224,66 @@ class SPLConqParser(Parser):
         None.
 
         """
-        pass
+        self._feature_to_index = None
+        self._index_to_feature = None
+
+    def _create_mapping(self, dom):
+        
+        self._feature_to_index = dict()
+        self._index_to_feature = dict()
+
+        binary_options = dom['vm']['binaryOptions']['configurationOption']
+
+        for index, opt in enumerate(binary_options):
+
+            # since DIMACS starts from 1
+            index += 1 
+
+            # record index and feature names
+            self._feature_to_index[ opt['name'] ] = index
+            self._index_to_feature[ index ] = opt['name']
 
     def parse(self, path: str) -> None:
-        pass
+        
+        with open(path, 'r') as file:
+            file_content = file.read()
+            dom = xmltodict.parse(file_content)
+
+        # create mapping of feature names and indexes
+        self._create_mapping(dom)
+
+        binary_options = dom['vm']['binaryOptions']['configurationOption']
+        for opt in binary_options:
+
+            name = opt['name']
+            is_optional = opt['optional']
+
+            # 1) check for parent features --> add an implication THIS --> PARENT
+            parent = None
+            if opt['parent'] is not None:
+                parent = opt['parent']
+
+            # 2) check for excluded features
+            excluded = []
+            if opt['excludedOptions'] is not None:
+                excluded = opt['excludedOptions']['options']
+                if type(excluded) is str:
+                    excluded = [excluded]
+
+            # 3) check for implied options
+            implied = []
+            if opt['impliedOptions'] is not None:
+                implied = opt['impliedOptions']['options']
+                if type(implied) is str:
+                    implied = [implied]
+
+            # 4) chec if feature has children
+            children = []
+            if opt['children'] is not None:
+                children = opt['children']['options']
+                if type(children) is str:
+                    children = [children]
+        
 
     def to_cnf(self) -> CNFExpression:
         pass
@@ -262,6 +314,12 @@ class SplotParser(Parser):
         pass
 
 
-parser = DimacsParser()
-parser.parse("model.dimacs")
-print(parser.get_clauses())
+if __name__ == "__main__":
+    #parser = DimacsParser()
+    #parser.parse("../_test_data/feature_models/sqlite.dimacs")
+    #for claus in parser.get_clauses():
+    #    print(claus)
+    parser = SPLConqParser()
+    parser.parse('FeatureModel.xml')
+    features = parser.get_features()
+    print(features)
