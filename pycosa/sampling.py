@@ -33,10 +33,6 @@ class MultiSampler(Sampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         super().__init__(fm, **kwargs)
 
-    @abstractmethod
-    def sample(self, **kwargs) -> pd.DataFrame:
-        pass
-
 
 class SingleSampler(Sampler):
     """
@@ -53,10 +49,6 @@ class SingleSampler(Sampler):
     def __init__(self, fm: modeling.CNFExpression, **kwargs):
         self.side_constraints = []
         super().__init__(fm, **kwargs)
-
-    @abstractmethod
-    def sample(self, **kwargs) -> pd.DataFrame:
-        pass
 
     def constrain_enabled(self, options):
         """
@@ -566,7 +558,9 @@ class BDDSampler(SingleSampler):
 
         # calculate proportional size for each partition
         all_configs = sum([2 ** (n_options - len(p)) for p in partitions])
-        props = [2 ** (n_options - len(p)) / all_configs for p in partitions]
+        
+        # calculate probabilities of a random config being from a partition
+        probs = [2 ** (n_options - len(p)) / all_configs for p in partitions]
 
         samples = []
         for i, p in enumerate(partitions):
@@ -575,7 +569,11 @@ class BDDSampler(SingleSampler):
             # how much each partition contributes to the entire pool
             # of samples
             n_free_options = n_options - len(p)
-            p_sample_size = int(size * props[i])
+            
+            # Calculate the number of configurations for this partition; 
+            # but at least one configuration per partition
+            p_sample_size = int(size * probs[i])
+            p_sample_size = max(1, p_sample_size)
 
             sample = []
             while len(sample) < p_sample_size:
@@ -725,7 +723,7 @@ class ElementaryEffectSampler(MultiSampler):
                 solutions["enabled"].append(enabled_configuration)
                 solutions["disabled"].append(disabled_configuration)
 
-                # avoid duplicates!!!11!!!!elf
+                # avoid duplicates
                 solution_constraints.append(enabled_configuration != ps[0])
                 solution_constraints.append(disabled_configuration != ps[0])
                 solution_constraints.append(enabled_configuration != ps[1])
