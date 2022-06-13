@@ -3,6 +3,7 @@ import unittest
 import pycosa.modeling as modeling
 import pycosa.sampling as sampling
 import pycosa.util as util
+import pycosa.lib as lib
 
 import itertools
 
@@ -85,30 +86,6 @@ class TestDiversitySampler(TestSingleSampler):
         sample = sampler.sample(size=100)
 
 
-class TestElementaryEffectSampler(unittest.TestCase):
-    def setUp(self):
-        self.fm = modeling.CNFExpression()
-        self.fm.from_dimacs("_test_data/feature_models/h2.dimacs")
-
-    def test_sample(self):
-        sampler = sampling.ElementaryEffectSampler(self.fm)
-        n = 30
-        options = [
-            "OPTIMIZE_DISTINCT",
-            "OPTIMIZE_IN_SELECT",
-            "IGNORE_CATALOGS",
-            "COMPRESS",
-        ]
-        en, dis = sampler.sample(
-            options=options,
-            size=n,
-        )
-
-        for opt in options:
-            self.assertTrue(en[opt].sum() == 30)
-            self.assertTrue(dis[opt].sum() == 0)
-
-
 class TestOfflineSampler(unittest.TestCase):
     def setUp(self):
 
@@ -171,6 +148,36 @@ class TestOfflineSampler(unittest.TestCase):
                 # check that configurations only differ in exactly one column
                 distance = np.count_nonzero(cfg1 != cfg2)
                 self.assertTrue(distance == 2)
+
+class TestElementaryEffectSampler(unittest.TestCase):
+    
+    def setUp(self):
+        
+        # load feature models from test data
+        tdata = './_test_data/feature_models/'
+        self.fms = []
+        for file in os.listdir(tdata):
+            path = tdata + file
+            fm = modeling.CNFExpression()
+            fm.from_dimacs(path)
+            self.fms.append(fm)
+    
+    def test_foo(self):
+        for seed in range(10):
+            for noptions in range(1, 8):
+                np.random.seed(seed)
+                for fm in self.fms:
+                    optionals = fm.find_optional_options()['optional']
+                    
+                    options = np.random.choice(optionals, size=noptions)
+                    options = [fm.index_map[i] for i in options]
+                    
+                    sampler = sampling.ElementaryEffectSampler(fm)
+                    
+                    try:
+                        en, dis = sampler.sample(10, options)
+                    except lib.SatisfiabilityExhaustionError:
+                        print('exhausted at seed {} and #options of {}'.format(seed, noptions))
 
 
 class UtilTester(unittest.TestCase):
