@@ -90,7 +90,7 @@ class Parser:
             DESCRIPTION.
 
         """
-        return self._clauses
+        return self.clauses
 
     def get_features(self) -> Sequence[str]:
         
@@ -130,6 +130,7 @@ class DimacsParser(Parser):
         None.
 
         """
+        super().__init__()
 
     def parse(self, path: str) -> None:
         """
@@ -224,8 +225,7 @@ class SPLConqParser(Parser):
         None.
 
         """
-        self._feature_to_index = None
-        self._index_to_feature = None
+        super().__init__()
 
     def _create_mapping(self, dom):
         
@@ -256,12 +256,32 @@ class SPLConqParser(Parser):
         for opt in binary_options:
 
             name = opt['name']
+
+            # 0) check if feature is optional
             is_optional = opt['optional']
+
+            # some string conversion
+            if is_optional == 'True':
+                is_optional = True
+            elif is_optional == 'False':
+                is_optional = False
+            else:
+                raise ValueError('Could not determine whether this feature is optional!', is_optional)
+ 
+            # add constraint for mandatory feature
+            if not is_optional:
+                self.clauses.append(
+                    [self.get_index(name)]
+                )
 
             # 1) check for parent features --> add an implication THIS --> PARENT
             parent = None
             if opt['parent'] is not None:
                 parent = opt['parent']
+
+                self.clauses.append(
+                    [self.get_index(name), -1 * self.get_index(parent)]
+                )
 
             # 2) check for excluded features
             excluded = []
@@ -270,6 +290,8 @@ class SPLConqParser(Parser):
                 if type(excluded) is str:
                     excluded = [excluded]
 
+                # TODO add constraint for excluded features!!!!
+
             # 3) check for implied options
             implied = []
             if opt['impliedOptions'] is not None:
@@ -277,12 +299,19 @@ class SPLConqParser(Parser):
                 if type(implied) is str:
                     implied = [implied]
 
-            # 4) chec if feature has children
+                for implied_feature in implied:
+                    self.clauses.append(
+                        [self.get_index(name), -1 * self.get_index(implied_feature)]
+                    )
+
+            # 4) check if feature has children
             children = []
             if opt['children'] is not None:
                 children = opt['children']['options']
                 if type(children) is str:
                     children = [children]
+
+                # TODO add constraint for child features!!!!
         
 
     def to_cnf(self) -> CNFExpression:
@@ -317,5 +346,4 @@ class SplotParser(Parser):
 if __name__ == "__main__":
     parser = SPLConqParser()
     parser.parse('FeatureModel.xml')
-    features = parser.get_features()
-    parser.get_feature(99)
+    print(parser.get_clauses())
