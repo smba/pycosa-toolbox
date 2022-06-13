@@ -165,8 +165,8 @@ class TestElementaryEffectSampler(unittest.TestCase):
             self.fms.append(fm)
 
     def test_foo(self):
-        for seed in range(10):
-            for noptions in range(1, 8):
+        for seed in range(2):
+            for noptions in range(1, 2):
                 np.random.seed(seed)
                 for fm in self.fms:
                     optionals = fm.find_optional_options()["optional"]
