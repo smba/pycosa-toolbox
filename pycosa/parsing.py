@@ -164,7 +164,7 @@ class DimacsParser(Parser):
             if start == 'c':  # c = comment, used for specifying a feature
                 line = line.split(' ')
                 index = line[1]
-                feature_name = line[2]pritn
+                feature_name = line[2]
             elif start == 'p':  # p = .. something, used for validation
                 line = line.split(' ')
                 n_options = int(line[2])
@@ -315,11 +315,7 @@ class SplotParser(Parser):
 
 
 if __name__ == "__main__":
-    #parser = DimacsParser()
-    #parser.parse("../_test_data/feature_models/sqlite.dimacs")
-    #for claus in parser.get_clauses():
-    #    print(claus)
     parser = SPLConqParser()
     parser.parse('FeatureModel.xml')
     features = parser.get_features()
-    print(features)
+    parser.get_feature(99)
