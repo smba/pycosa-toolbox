@@ -529,6 +529,7 @@ class CoverageSampler(SingleSampler):
         sample = self._solutions_to_dataframe(solutions)
         return sample
 
+
 '''
 class BDDSampler(SingleSampler):
     """
@@ -611,6 +612,7 @@ class BDDSampler(SingleSampler):
 
         return out_sample
 '''
+
 
 class ElementaryEffectSampler(MultiSampler):
     """
