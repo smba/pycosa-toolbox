@@ -300,7 +300,7 @@ class DFSSampler(RandomSampler):
     repeatedly searches for solutions to the feature model. Here, we run into
     the problem of 'clustered' solutions, which show variation only among few
     configuration options. This strategy is NOT suited for experiments, but
-    to show how SMT solvers can be used for sampling and what problems come
+    to show how SMT solverbddsas can be used for sampling and what problems come
     with doing so.
 
     The clustering strategies 'DiversityPromotionSampler' and
@@ -529,7 +529,7 @@ class CoverageSampler(SingleSampler):
         sample = self._solutions_to_dataframe(solutions)
         return sample
 
-
+'''
 class BDDSampler(SingleSampler):
     """
     This class implements consistent uniform random sampling by partitioning the configuration space. The idea
@@ -610,7 +610,7 @@ class BDDSampler(SingleSampler):
         out_sample = out_sample.astype(bool)
 
         return out_sample
-
+'''
 
 class ElementaryEffectSampler(MultiSampler):
     """
