@@ -1,14 +1,15 @@
 import numpy as np
 
-class SyntheticDataGenerator:
-    def __init__(self,
-                 n_options: int = 5,
-                 p_factors: float = 0.2,
-                 p_terms: float = 0.8,
-                 p_alphas: float = 0.001,
-                 noise: float = 0.3,
 
-                 ):
+class SyntheticDataGenerator:
+    def __init__(
+        self,
+        n_options: int = 5,
+        p_factors: float = 0.2,
+        p_terms: float = 0.8,
+        p_alphas: float = 0.001,
+        noise: float = 0.3,
+    ):
         """
         Generate a ground-truth performance model that predicts the performance of arbitrary configurations.
 
@@ -33,7 +34,8 @@ class SyntheticDataGenerator:
         n_factors = [min(nf, n_options) for nf in n_factors]
 
         terms = [
-            np.random.choice(_options, size=nf, replace=False).tolist() for nf in n_factors
+            np.random.choice(_options, size=nf, replace=False).tolist()
+            for nf in n_factors
         ]
 
         self.terms = terms
@@ -44,20 +46,23 @@ class SyntheticDataGenerator:
         variance = np.random.dirichlet(alphas, 1)
         influence = variance * 1000
 
-        #p.linspace(0.01, 0.15, 5)
+        # p.linspace(0.01, 0.15, 5)
         influence *= np.random.choice([-1, 1], size=influence.shape)
         influence = influence[0]
         self.influence = influence
 
-        self.model = lambda x: np.sum([
-            np.all([x[i] for i in term]) * influence[j] for j, term in enumerate(terms)
-        ]) + np.random.normal(0, noise)
+        self.model = lambda x: np.sum(
+            [
+                np.all([x[i] for i in term]) * influence[j]
+                for j, term in enumerate(terms)
+            ]
+        ) + np.random.normal(0, noise)
 
     def get_performance(self, x) -> float:
         return self.model(x)
 
     def get_coefs(self):
-        # Size (number 
+        # Size (number
         return list(zip(self.terms, self.influence))
 
 
