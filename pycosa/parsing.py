@@ -13,27 +13,6 @@ class Parser:
         self.clauses = []
 
     def get_feature(self, index: int) -> str:
-        """
-
-
-        Parameters
-        ----------
-        index : int
-            DESCRIPTION.
-
-        Raises
-        ------
-        RuntimeError
-            DESCRIPTION.
-        ValueError
-            DESCRIPTION.
-
-        Returns
-        -------
-        str
-            DESCRIPTION.
-
-        """
 
         if self._index_to_feature is None:
             msg = "No feature model parsed yet! Use {}.parse() first."
@@ -47,27 +26,6 @@ class Parser:
             raise ValueError(msg)
 
     def get_index(self, feature_name: str) -> int:
-        """
-
-
-        Parameters
-        ----------
-        feature_name : str
-            DESCRIPTION.
-
-        Raises
-        ------
-        RuntimeError
-            DESCRIPTION.
-        ValueError
-            DESCRIPTION.
-
-        Returns
-        -------
-        int
-            DESCRIPTION.
-
-        """
 
         if self._feature_to_index is None:
             msg = "No feature model parsed yet! Use {}.parse() first."
@@ -81,72 +39,21 @@ class Parser:
             raise ValueError(msg)
 
     def get_clauses(self) -> Sequence[Sequence[int]]:
-        """
-
-
-        Returns
-        -------
-        Sequence[Sequence[int]]
-            DESCRIPTION.
-
-        """
         return self.clauses
 
     def get_features(self) -> Sequence[str]:
-        
         return list(self._feature_to_index.keys())
 
     def parse(self, path: str) -> None:
-        pass
-
-
-class CNFExpression():
-
-    def __init__(self):
-        """
-        Wrapper class for boolean expressions. Since we 
-
-        Returns
-        -------
-        None.
-
-        """
-        pass
+        raise NotImplementedError()
 
 
 class DimacsParser(Parser):
 
     def __init__(self, ):
-        """
-
-
-        Parameters
-        ----------
-         : TYPE
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
-        """
         super().__init__()
 
     def parse(self, path: str) -> None:
-        """
-
-
-        Parameters
-        ----------
-        path : str
-            DESCRIPTION.
-
-        Returns
-        -------
-        None
-            DESCRIPTION.
-
-        """
 
         self._index_to_feature = dict()
         self._feature_to_index = dict()
@@ -187,163 +94,42 @@ class DimacsParser(Parser):
 class FeatureIdeParser(Parser):
 
     def __init__(self, ):
-        """
-        
-
-        Parameters
-        ----------
-         : TYPE
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
-        """
-        pass
+        raise NotImplementedError()
 
     def parse(self, path: str) -> None:
-        pass
+        raise NotImplementedError()
 
     def to_cnf(self) -> CNFExpression:
-        pass
+        raise NotImplementedError()
 
 
-class SPLConqParser(Parser):
+class SPLCParser(Parser):
 
     def __init__(self, ):
-        """
-        
-
-        Parameters
-        ----------
-         : TYPE
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
-        """
         super().__init__()
 
     def _create_mapping(self, dom):
-        
-        self._feature_to_index = dict()
-        self._index_to_feature = dict()
-
-        binary_options = dom['vm']['binaryOptions']['configurationOption']
-
-        for index, opt in enumerate(binary_options):
-
-            # since DIMACS starts from 1
-            index += 1 
-
-            # record index and feature names
-            self._feature_to_index[ opt['name'] ] = index
-            self._index_to_feature[ index ] = opt['name']
+        raise NotImplementedError()
 
     def parse(self, path: str) -> None:
-        
-        with open(path, 'r') as file:
-            file_content = file.read()
-            dom = xmltodict.parse(file_content)
-
-        # create mapping of feature names and indexes
-        self._create_mapping(dom)
-
-        binary_options = dom['vm']['binaryOptions']['configurationOption']
-        for opt in binary_options:
-
-            name = opt['name']
-
-            # 0) check if feature is optional
-            is_optional = opt['optional']
-
-            # some string conversion
-            if is_optional == 'True':
-                is_optional = True
-            elif is_optional == 'False':
-                is_optional = False
-            else:
-                raise ValueError('Could not determine whether this feature is optional!', is_optional)
- 
-            # add constraint for mandatory feature
-            if not is_optional:
-                self.clauses.append(
-                    [self.get_index(name)]
-                )
-
-            # 1) check for parent features --> add an implication THIS --> PARENT
-            parent = None
-            if opt['parent'] is not None:
-                parent = opt['parent']
-
-                self.clauses.append(
-                    [self.get_index(name), -1 * self.get_index(parent)]
-                )
-
-            # 2) check for excluded features
-            excluded = []
-            if opt['excludedOptions'] is not None:
-                excluded = opt['excludedOptions']['options']
-                if type(excluded) is str:
-                    excluded = [excluded]
-
-                # TODO add constraint for excluded features!!!!
-
-            # 3) check for implied options
-            implied = []
-            if opt['impliedOptions'] is not None:
-                implied = opt['impliedOptions']['options']
-                if type(implied) is str:
-                    implied = [implied]
-
-                for implied_feature in implied:
-                    self.clauses.append(
-                        [self.get_index(name), -1 * self.get_index(implied_feature)]
-                    )
-
-            # 4) check if feature has children
-            children = []
-            if opt['children'] is not None:
-                children = opt['children']['options']
-                if type(children) is str:
-                    children = [children]
-
-                # TODO add constraint for child features!!!!
+        raise NotImplementedError()
         
 
     def to_cnf(self) -> CNFExpression:
-        pass
+        raise NotImplementedError()
 
 
-class SplotParser(Parser):
+class SPLOTParser(Parser):
 
     def __init__(self, ):
-        """
-        
-
-        Parameters
-        ----------
-         : TYPE
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
-        """
-        pass
+        raise NotImplementedError()
 
     def parse(self, path: str) -> None:
-        pass
+        raise NotImplementedError()
 
     def to_cnf(self) -> CNFExpression:
-        pass
+        raise NotImplementedError()
 
 
 if __name__ == "__main__":
-    parser = SPLConqParser()
-    parser.parse('FeatureModel.xml')
-    print(parser.get_clauses())
+    pass
