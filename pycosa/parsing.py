@@ -5,9 +5,10 @@ from typing import Sequence
 import xmltodict
 import z3
 
+
 class Parser:
     def __init__(self):
-        
+
         self._index_to_feature = None
         self._feature_to_index = None
         self.clauses = []
@@ -49,8 +50,9 @@ class Parser:
 
 
 class DimacsParser(Parser):
-
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         super().__init__()
 
     def parse(self, path: str) -> None:
@@ -59,31 +61,30 @@ class DimacsParser(Parser):
         self._feature_to_index = dict()
         self._clauses = []
 
-        with open(path, 'r') as file:
+        with open(path, "r") as file:
             lines = file.readlines()
 
-        lines = [line.replace('\n', '') for line in lines]
+        lines = [line.replace("\n", "") for line in lines]
 
         for line in lines:
 
             # TODO replace with pattern matching for Python >= 3.10
             start = line[0]
 
-            if start == 'c':  # c = comment, used for specifying a feature
-                line = line.split(' ')
+            if start == "c":  # c = comment, used for specifying a feature
+                line = line.split(" ")
                 index = line[1]
                 feature_name = line[2]
-            elif start == 'p':  # p = .. something, used for validation
-                line = line.split(' ')
+            elif start == "p":  # p = .. something, used for validation
+                line = line.split(" ")
                 n_options = int(line[2])
                 n_clauses = int(line[3])
 
-                assert len(self._index_to_feature) == len(
-                    self._feature_to_index)
+                assert len(self._index_to_feature) == len(self._feature_to_index)
                 assert len(self._index_to_feature) == n_options
 
             else:  # any other line should specify a clause
-                line = line.split(' ')
+                line = line.split(" ")
 
                 assert int(line[-1]) == 0
 
@@ -92,8 +93,9 @@ class DimacsParser(Parser):
 
 
 class FeatureIdeParser(Parser):
-
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         raise NotImplementedError()
 
     def parse(self, path: str) -> None:
@@ -104,8 +106,9 @@ class FeatureIdeParser(Parser):
 
 
 class SPLCParser(Parser):
-
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         super().__init__()
 
     def _create_mapping(self, dom):
@@ -113,15 +116,15 @@ class SPLCParser(Parser):
 
     def parse(self, path: str) -> None:
         raise NotImplementedError()
-        
 
     def to_cnf(self) -> CNFExpression:
         raise NotImplementedError()
 
 
 class SPLOTParser(Parser):
-
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         raise NotImplementedError()
 
     def parse(self, path: str) -> None:
