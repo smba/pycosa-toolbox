@@ -44,13 +44,12 @@ class Parser:
 
     def get_features(self) -> Sequence[str]:
         return list(self._feature_to_index.keys())
-    
+
     def get_features2index(self):
         return self._feature_to_index
 
     def get_index2features(self):
         return self._index_to_feature
-
 
     def parse(self, path: str) -> None:
         raise NotImplementedError()
@@ -78,27 +77,26 @@ class DimacsParser(Parser):
             # TODO replace with pattern matching for Python >= 3.10
             start = line[0]
 
-            if start == 'c':  # c = comment, used for specifying a feature
-                line = line.split(' ')
+            if start == "c":  # c = comment, used for specifying a feature
+                line = line.split(" ")
                 index = int(line[1])
                 feature_name = line[2]
-                
+
                 # record
                 self._index_to_feature[index] = feature_name
                 self._feature_to_index[feature_name] = index
-                
-            elif start == 'p':  # p = .. something, used for validation
-                
-                line = line.split(' ')
+
+            elif start == "p":  # p = .. something, used for validation
+
+                line = line.split(" ")
                 n_options = int(line[2])
                 n_clauses = int(line[3])
 
-                assert len(self._index_to_feature) == len(
-                   self._feature_to_index)
+                assert len(self._index_to_feature) == len(self._feature_to_index)
                 assert len(self._index_to_feature) == n_options
 
             else:  # any other line should specify a clause
-                line = line.split(' ')
+                line = line.split(" ")
                 assert int(line[-1]) == 0
 
                 clause = [int(literal) for literal in line[:-1]]
@@ -127,6 +125,7 @@ class SPLCParser(Parser):
     def parse(self, path: str) -> None:
         raise NotImplementedError()
 
+
 class SPLOTParser(Parser):
     def __init__(
         self,
@@ -135,7 +134,6 @@ class SPLOTParser(Parser):
 
     def parse(self, path: str) -> None:
         raise NotImplementedError()
-
 
 
 if __name__ == "__main__":
