@@ -21,7 +21,7 @@ Testing should include aspects like
     - exact
     - maximum not exceeded
 - Uniqueness
-"""
+
 
 
 class TestSingleSampler(unittest.TestCase):
@@ -195,7 +195,7 @@ class UtilTester(unittest.TestCase):
 
         for c in df.columns:
             df = util.construct_categorical_variable(df, c)
-
+"""
 
 if __name__ == "__main__":
     unittest.main()
