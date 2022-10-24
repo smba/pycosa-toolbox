@@ -1,6 +1,6 @@
 import itertools
 from typing import Sequence
-from parsing import Parser
+from pycosa.parsing import Parser
 
 import networkx as nx
 import numpy as np
