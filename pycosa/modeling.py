@@ -9,7 +9,6 @@ import z3
 
 class VariabilityModel:
     def __init__(self):
-
         self.binary_options = dict()
 
         self.dimacs = None
@@ -23,7 +22,7 @@ class VariabilityModel:
         self.bin_index_to_feature = parser.get_index2features()
 
         self.dimacs = parser.get_clauses()
-        print(self.dimacs)
+
         clauses = parser.get_clauses()
 
         z3_clauses = self._generate_z3_clauses(clauses)
@@ -73,6 +72,41 @@ class VariabilityModel:
         self.dimacs = new_clauses
         self.binary_clauses = self._generate_z3_clauses(new_clauses)
 
+    def get_z3_pair_clauses(self):
+        z3_clauses = []
 
+        for clause in self.dimacs:
+            ors1 = []
+            ors2 = []
+            for literal in clause:
+                sign = literal > 0
+                index = abs(literal)
+                feature_name = self.bin_index_to_feature[index]
+
+                if sign:
+                    ors1.append(
+                        z3.Bool(f"{feature_name}-1")
+                    )
+                    ors2.append(
+                        z3.Bool(f"{feature_name}-2")
+                    )
+                    
+                else:
+                    ors1.append(
+                        z3.Not(z3.Bool(f"{feature_name}-1"))
+                    )
+                    ors2.append(
+                        z3.Not(z3.Bool(f"{feature_name}-2"))
+                    )
+
+            if len(ors1) > 0 and len(ors2) >  0:
+                z3_clauses.append(z3.Or(ors1))
+                z3_clauses.append(z3.Or(ors2))
+            else:
+                z3_clauses.append(ors1[0])
+                z3_clauses.append(ors2[0])
+
+
+        return z3_clauses
 if __name__ == "__main__":
     pass
