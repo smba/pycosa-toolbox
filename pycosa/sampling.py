@@ -180,7 +180,7 @@ class GroupSampler:
                 )
                 
             else:
-                print(f"{d} is not satisfiable")
+                #print(f"{d} is not satisfiable")
                 available_distances = available_distances - set([d])
             
         enabled = pd.DataFrame(enabled)

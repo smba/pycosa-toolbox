@@ -108,5 +108,7 @@ class VariabilityModel:
 
 
         return z3_clauses
+    
+    
 if __name__ == "__main__":
     pass

@@ -1,5 +1,5 @@
 import numpy as np
-
+import pycosa.modeling as modeling
 
 class SyntheticDataGenerator:
     def __init__(
@@ -62,9 +62,21 @@ class SyntheticDataGenerator:
         return self.model(x)
 
     def get_coefs(self):
-        # Size (number
         return list(zip(self.terms, self.influence))
 
-
+class AttributedVariabilityModelGenerator:
+    
+    def __init__(self, vm: modeling.VariabilityModel):
+        self.vm = vm
+        self.performance_model = SyntheticDataGenerator(
+            n_options = len(self.vm.get_binary_features()),
+            p_factors = 0.3,
+            p_terms = 0.7
+        )
+    
+    def get_performances(self, X):
+        perf = [self.performance_model.get_performance(x) for x in X]
+        return np.array(perf)
+        
 if __name__ == "__main__":
     pass
