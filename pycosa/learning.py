@@ -6,14 +6,24 @@ import numpy as np
 class GroupLearner:
     
     def __init__(self, options):
-        self.t1 = 0.455
+        self.t1 = 0.5
         self.t2 = 0.1
         
-        self.records = {
-            option: np.array([0,0]) for option in options    
+        self.coverage = {
+            option: 0 for option in options
         }
+        
+        self.records = {
+            option: np.array([0,1]) for option in options    
+        }
+        
+        
     
     def _classify(self, group, perf_en, perf_dis):
+        
+        # record covered options
+        for option in group:
+            self.coverage[option] += 1
         
         n_pairs = len(perf_en)
         
@@ -25,7 +35,7 @@ class GroupLearner:
             delta[i] <= self.t1 * min(
                 np.abs(perf_en[i]),
                 np.abs(perf_dis[i])
-            ) or delta[i] < 3 for i in range(n_pairs) 
+            ) or delta[i] < 2 for i in range(n_pairs) 
         ]
         
         g_t1 = [
@@ -55,6 +65,12 @@ class GroupLearner:
             
         return c
     
-
+    def suggest_options(self, size = 5):
+        ps = [v[1] for k, v in self.records.items()]
+        ps = np.array(ps) / np.sum(ps)
+        
+        options = np.random.choice(list(self.records.keys()), p=ps, size=size)
+        
+        return options
 if __name__ == "__main__":
     pass
