@@ -28,16 +28,16 @@ if __name__ == "__main__":
     avm = AttributedVariabilityModelGenerator(vm)
     d = learning.GroupLearner(vm.get_binary_features())
     
-    for i in range(500):
-        print(i)
+    for i in range(200):
+        #print(i)
         sampler = sampling.GroupSampler(vm)
-        if i < 50:
-            options = np.random.choice(vm.get_binary_features(), size=3)
-        else:
-            options = d.suggest_options(3)
+        #if i < 600:
+        #    options = np.random.choice(vm.get_binary_features(), size=3)
+        #else:
+        options = d.suggest_options(3)
         #print(options)
         #en, dis = sampler.sample(options, 50)
-        configs = np.random.choice([0,1], size=(50, len(vm.get_binary_features())))
+        configs = np.random.choice([0,1], size=(20, len(vm.get_binary_features())))
         en, dis = np.copy(configs), np.copy(configs)
         
         en = pd.DataFrame(en, columns=vm.get_binary_features())
