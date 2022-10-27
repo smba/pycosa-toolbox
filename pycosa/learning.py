@@ -51,11 +51,10 @@ class GroupLearner:
         elif any(leq_t1) and any(g_t1):
             c = (0,1)
         elif all(leq_t1):
-            print("fuck da")
+            print(f"Dropping options {group}")
             self.options = self.options - set(group)
             c = (0,0)
-        else:
-            
+        else:  
             c = (0,0)
         
         # stoppage criteria
@@ -72,7 +71,7 @@ class GroupLearner:
     
     def suggest_options(self, size = 5):
         
-        options = np.random.choice(list(self.options), size=size)
+        options = np.random.choice(list(self.options), size=size, replace=False)
         
         return options
 if __name__ == "__main__":

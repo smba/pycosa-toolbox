@@ -28,10 +28,13 @@ if __name__ == "__main__":
     avm = AttributedVariabilityModelGenerator(vm)
     d = learning.GroupLearner(vm.get_binary_features())
     
-    for i in range(200):
+    n_groups = 150
+    for i in range(n_groups):
         #print(i)
         sampler = sampling.GroupSampler(vm)
-        #if i < 600:
+        
+        
+        #if i < n_groups // :
         #    options = np.random.choice(vm.get_binary_features(), size=3)
         #else:
         options = d.suggest_options(3)
@@ -57,20 +60,20 @@ if __name__ == "__main__":
     terms = avm.performance_model.terms
     terms = [item for sublist in terms for item in sublist]
     
-    fig, axes = plt.subplots(3, 1, sharex=True)
+    fig, axes = plt.subplots(2, 1, sharex=True)
     effects = pd.DataFrame(d.records)
     
     summ = effects.iloc[0,:]  + effects.iloc[1,:] 
     
     axes[0].bar(np.arange(len(vm.get_binary_features())), effects.iloc[0,:])
     axes[1].bar(np.arange(len(vm.get_binary_features())), effects.iloc[1,:])
-    axes[2].bar(np.arange(len(vm.get_binary_features())), summ, color="brown")
+    #axes[2].bar(np.arange(len(vm.get_binary_features())), summ, color="brown")
     
     print(terms)
     for t in terms:
-        axes[0].axvline(t, color="orange")
-        axes[1].axvline(t, color="orange")
-        axes[2].axvline(t, color="lime")
+        axes[0].axvline(t, color="brown")
+        axes[1].axvline(t, color="brown")
+        #axes[2].axvline(t, color="lime")
     #plt.bar(d.coverage.keys(), d.coverage.values())
     #plt.xticks(rotation=90)
     #plt.show()
