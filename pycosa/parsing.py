@@ -2,19 +2,13 @@
 # -*- coding: utf-8 -*-
 
 from typing import Sequence
-import xmltodict
-import xmlschema
-import z3
-import itertools
-from pprint import pprint
-from modeling import VariabilityModel
 
 class Parser:
     def __init__(self):
 
-        self._index_to_feature = None
-        self._feature_to_index = None
-        self.clauses = []
+        self._index_to_feature = dict()
+        self._feature_to_index = dict()
+        #self.clauses = []
 
     def get_feature(self, index: int) -> str:
 
@@ -106,149 +100,5 @@ class DimacsParser(Parser):
                 self._clauses.append(clause)
 
 
-class FeatureIdeParser(Parser):
-    def __init__(
-        self,
-    ):
-        raise NotImplementedError()
-
-    def parse(self, path: str) -> None:
-        raise NotImplementedError()
-
-
-class SPLCParser(Parser):
-    def __init__(
-        self,
-    ):
-        super().__init__()
-        self.schema = xmlschema.XMLSchema("../_test_data/meta/splc.xsd")
-        
-    def create_alternative_group(self, mutex_options):
-        constraints = [] 
-        for option in mutex_options:
-            options_ = list(set(mutex_options) - set([option]))
-            constraints.append(
-                 z3.And([z3.Bool(option)] + [z3.Not(z3.Bool(opt)) for opt in options_])   
-            )
-        return z3.Or(constraints)
-    
-    def dimacs_create_alternative_group(self, mutex_options):
-        constraints = []
-        for a, b in itertools.combinations(mutex_options, 2):
-            constraints.append(
-                [-1*a, -1*b]
-            )
-        return constraints
-
-    def create_or_group(self, options):
-        constraints = z3.Or(
-            [z3.Bool(option) for option in options]
-        )
-        return z3.Or(constraints)
-    
-    def dimacs_create_or_group(self, options):
-        constraints = [option for option in options]
-        return constraints
-
-
-    def create_parent_constraint(self, child, parent):
-        return z3.Implies(z3.Bool(child), z3.Bool(parent))
-    
-    def dimacs_create_parent_constraint(self, child, parent):
-        return [-1*child, parent]
-
-    def create_mandatory_constraint(self, option):
-        return z3.Bool(option)   
-    
-    def dimacs_create_mandatory_constraint(self, option):
-        print(option)
-        return [option] 
-    
-    def parse(self, path: str) -> None:
-        
-        xml = self.schema.to_dict(path)
-        
-        constraints = []
-        literals = []
-        
-        dimacs = []
-        
-        self.options = {}
-        
-        mutex_groups = []
-        for index, option in enumerate(xml['binaryOptions']['configurationOption']):
-            name = option["name"]
-            self.options[name] = index + 1
-        
-        for option in xml['binaryOptions']['configurationOption']:
-            name = option["name"]
-            parent = option["parent"]
-            literals.append(z3.Bool(name))
-            
-            if parent.strip() != "":
-                #print("parent", parent)
-                # ADD parent constraint
-                constraints.append(
-                    self.create_parent_constraint(name, parent)
-                )
-                dimacs.append(self.dimacs_create_parent_constraint(
-                    self.options[name], 
-                    self.options[parent]
-                ))
-            
-            # check if option is optional
-            is_optional = option['optional']
-            if not is_optional:
-                constraints.append(
-                    self.create_mandatory_constraint(name)    
-                )
-                dimacs.append(
-                    self.options[name]
-                )
-
-            if option['excludedOptions'] is not None:
-                mutexes = option['excludedOptions']['options']
-                constraints.append(
-                    self.create_alternative_group(mutexes)
-                )
-                dimacs.append(self.dimacs_create_alternative_group(
-                    [self.options[i] for i in mutexes]    
-                ))
-
-        return literals, constraints, dimacs
-
-class SPLOTParser(Parser):
-    def __init__(
-        self,
-    ):
-        raise NotImplementedError()
-
-    def parse(self, path: str) -> None:
-        raise NotImplementedError()
-
-
 if __name__ == "__main__":
-    parser = SPLCParser()
-    path = "../_test_data/feature_models/splc/lrzip.xml"
-    literals, constraints, dimacs = parser.parse(path)
-    #print(constraints)
-    print(dimacs)
-    
-    model = VariabilityModel()
-    
-    """
-    solver = z3.Solver()
-    solver.add(constraints)
-    import numpy as np
-    import matplotlib.pyplot as plt
-    configs = []
-    while solver.check() == z3.sat:
-        model = solver.model()
-        bener = [bool(model.evaluate(p, model_completion=True)) for p in literals]
-        solver.add(
-            z3.Or([p != model.evaluate(p, model_completion=True) for p in literals])    
-        )
-        configs.append(bener)
-    """
-    
-    
+    pass

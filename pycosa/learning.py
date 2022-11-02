@@ -4,7 +4,7 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
-from lib import OptionExhaustionError
+from pycosa.lib import OptionExhaustionError
 
 
 class GroupLearner:

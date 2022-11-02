@@ -1,8 +1,6 @@
 import itertools
 from typing import Sequence
 
-from pycosa.parsing import Parser
-
 import numpy as np
 import z3
 
@@ -16,19 +14,16 @@ class VariabilityModel:
         self.bin_feature_to_index = None
         self.bin_index_to_feature = None
 
-    def from_parser(self, parser: Parser):
+    def from_dimacs(self, dimacs, index2features):
 
-        self.bin_feature_to_index = parser.get_features2index()
-        self.bin_index_to_feature = parser.get_index2features()
+        self.bin_feature_to_index = {k: v for v, k in index2features.items()}
+        self.bin_index_to_feature = index2features
 
-        self.dimacs = parser.get_clauses()
-
-        clauses = parser.get_clauses()
-
-        z3_clauses = self._generate_z3_clauses(clauses)
-
+        self.dimacs = dimacs
+        z3_clauses = self._generate_z3_clauses(dimacs)
+        
         self.binary_clauses = z3_clauses
-        self.binary_options = parser.get_features()
+        self.binary_options = index2features.values()
 
     def _generate_z3_clauses(self, clauses):
         z3_clauses = []
@@ -57,7 +52,7 @@ class VariabilityModel:
         return self.binary_clauses
 
     def get_binary_features(self):
-        return self.binary_options
+        return list(self.binary_options)
 
     def shuffle(self):
         clauses = []
@@ -79,7 +74,7 @@ class VariabilityModel:
             ors1 = []
             ors2 = []
             for literal in clause:
-                sign = literal > 0
+                sign = literal > 0,
                 index = abs(literal)
                 feature_name = self.bin_index_to_feature[index]
 
@@ -99,7 +94,7 @@ class VariabilityModel:
                         z3.Not(z3.Bool(f"{feature_name}-2"))
                     )
 
-            if len(ors1) > 0 and len(ors2) >  0:
+            if len(ors1) > 0 and len(ors2) > 0:
                 z3_clauses.append(z3.Or(ors1))
                 z3_clauses.append(z3.Or(ors2))
             else:

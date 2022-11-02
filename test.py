@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     parser = parsing.DimacsParser()
-    parser.parse("_test_data/feature_models/h2.dimacs")
+    parser.parse("_test_data/feature_models/unconstrained.dimacs")
     np.random.seed(1)
     vm = modeling.VariabilityModel()
     vm.from_parser(parser)
@@ -27,13 +27,14 @@ if __name__ == "__main__":
     avm = AttributedVariabilityModelGenerator(vm)
     d = learning.GroupLearner(vm.get_binary_features())
     
-    n_groups = 50
+    n_groups = 100
     for i in range(n_groups):
+        print(i)
         sampler = sampling.GroupSampler(vm)
 
         try:
             options = d.suggest_options(1)
-            en, dis = sampler.sample(options, 150)
+            en, dis = sampler.sample(options, 50)
             #configs = np.random.choice([0,1], size=(20, len(vm.get_binary_features())))
             #en, dis = np.copy(configs), np.copy(configs)
             
@@ -49,9 +50,9 @@ if __name__ == "__main__":
             
             delta = np.abs(perf1 - perf2)
             
-            d._classify(options, perf1, perf2)
-        except:
-            print("heute nicht")
+            d.classify(options, perf1, perf2)
+        except Exception as e:
+            print(e)
         
     terms = avm.performance_model.terms
     terms = [item for sublist in terms for item in sublist]

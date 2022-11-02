@@ -1,10 +1,10 @@
-import itertools
-from abc import ABC, abstractmethod
-from typing import Sequence
-import pycosa.modeling as modeling
-import numpy as np
 import pandas as pd
 import z3
+
+import modeling as modeling
+
+import numpy as np
+
 
 class Sampler:
 
@@ -55,6 +55,7 @@ class DistanceBasedSampler:
         self.clauses = vm.get_binary_clauses()
         self.bin_features = vm.get_binary_features()
         
+        print(self.bin_features)
     
     def sample(self, max_size=100):
         
@@ -188,7 +189,26 @@ class GroupSampler:
         
         return enabled, disabled
             
-            
+
+"""
+Sampler:
+- Diversity Promotion Sampler (Henard, 2015)
+- Hash function sampling (..)
+- Coverage-based Sampling (option, t-wise)
+- BDD uniform random sampling
+- integration with PyDOE2 for numerical features
+- Group Sampling
+
+Variability Modeling:
+- numerical features
+- entirely build from DIMACS
+
+Parsing:
+- numerical options
+- SPLConqueror
+
+
+"""
             
 if __name__ == "__main__":
     pass
