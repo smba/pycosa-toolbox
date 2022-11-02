@@ -109,16 +109,8 @@ class SPLCParser(Parser):
         super().__init__()
         self.schema = xmlschema.XMLSchema("../_test_data/meta/splc.xsd")
         
-    def create_alternative_group(self, mutex_options):
-        constraints = [] 
-        for option in mutex_options:
-            options_ = list(set(mutex_options) - set([option]))
-            constraints.append(
-                 z3.And([z3.Bool(option)] + [z3.Not(z3.Bool(opt)) for opt in options_])   
-            )
-        return z3.Or(constraints)
-    
-    def dimacs_create_alternative_group(self, mutex_options):
+
+    def _alternative_group(self, mutex_options):
         constraints = []
         for a, b in itertools.combinations(mutex_options, 2):
             constraints.append(
@@ -126,27 +118,14 @@ class SPLCParser(Parser):
             )
         return constraints
 
-    def create_or_group(self, options):
-        constraints = z3.Or(
-            [z3.Bool(option) for option in options]
-        )
-        return z3.Or(constraints)
-    
-    def dimacs_create_or_group(self, options):
-        constraints = [option for option in options]
+    def _or_group(self, options):
+        constraints = [o for o in options]
         return constraints
-    
-    def create_parent_constraint(self, child, parent):
-        return z3.Implies(z3.Bool(child), z3.Bool(parent))
-    
-    def dimacs_create_parent_constraint(self, child, parent):
-        return [-1*child, parent]
 
-    def create_mandatory_constraint(self, option):
-        return z3.Bool(option)   
-    
-    def dimacs_create_mandatory_constraint(self, option):
-        print(option)
+    def _parent(self, child, parent):
+        return [-1*child, parent]
+  
+    def _mandatory(self, option):
         return [option] 
     
     def parse(self, path: str) -> None:
@@ -156,7 +135,7 @@ class SPLCParser(Parser):
         constraints = []
         literals = []
         
-        dimacs = []
+        self._clauses = []
         
         self.options = {}
         
@@ -171,12 +150,7 @@ class SPLCParser(Parser):
             literals.append(z3.Bool(name))
             
             if parent.strip() != "":
-                #print("parent", parent)
-                # ADD parent constraint
-                constraints.append(
-                    self.create_parent_constraint(name, parent)
-                )
-                dimacs.append(self.dimacs_create_parent_constraint(
+                self._clauses.append(self.dimacs_create_parent_constraint(
                     self.options[name], 
                     self.options[parent]
                 ))
@@ -184,23 +158,18 @@ class SPLCParser(Parser):
             # check if option is optional
             is_optional = option['optional']
             if not is_optional:
-                constraints.append(
-                    self.create_mandatory_constraint(name)    
-                )
-                dimacs.append(
+                self._clauses.append(
                     self.options[name]
                 )
 
             if option['excludedOptions'] is not None:
                 mutexes = option['excludedOptions']['options']
-                constraints.append(
-                    self.create_alternative_group(mutexes)
-                )
-                dimacs.append(self.dimacs_create_alternative_group(
+
+                self._clauses.append(self.dimacs_create_alternative_group(
                     [self.options[i] for i in mutexes]    
                 ))
 
-        return literals, constraints, dimacs
+        
     
 if __name__ == "__main__":
     pass
