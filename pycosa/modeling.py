@@ -16,9 +16,7 @@ class VariabilityModel:
         self.bin_index_to_feature = None
 
     def from_dimacs(
-            self,
-            dimacs: Sequence[Sequence[int]],
-            index2features: Dict[int, str]
+        self, dimacs: Sequence[Sequence[int]], index2features: Dict[int, str]
     ) -> None:
 
         self.bin_feature_to_index = {k: v for v, k in index2features.items()}
@@ -26,13 +24,12 @@ class VariabilityModel:
 
         self.dimacs = dimacs
         z3_clauses = self._generate_z3_clauses(dimacs)
-        
+
         self.binary_clauses = z3_clauses
         self.binary_options = index2features.values()
 
     def _generate_z3_clauses(
-            self,
-            clauses: Sequence[Sequence[int]]
+        self, clauses: Sequence[Sequence[int]]
     ) -> Sequence[z3.BoolRef]:
 
         z3_clauses = []
@@ -83,25 +80,17 @@ class VariabilityModel:
             ors1 = []
             ors2 = []
             for literal in clause:
-                sign = literal > 0,
+                sign = (literal > 0,)
                 index = abs(literal)
                 feature_name = self.bin_index_to_feature[index]
 
                 if sign:
-                    ors1.append(
-                        z3.Bool(f"{feature_name}-1")
-                    )
-                    ors2.append(
-                        z3.Bool(f"{feature_name}-2")
-                    )
-                    
+                    ors1.append(z3.Bool(f"{feature_name}-1"))
+                    ors2.append(z3.Bool(f"{feature_name}-2"))
+
                 else:
-                    ors1.append(
-                        z3.Not(z3.Bool(f"{feature_name}-1"))
-                    )
-                    ors2.append(
-                        z3.Not(z3.Bool(f"{feature_name}-2"))
-                    )
+                    ors1.append(z3.Not(z3.Bool(f"{feature_name}-1")))
+                    ors2.append(z3.Not(z3.Bool(f"{feature_name}-2")))
 
             if len(ors1) > 0 and len(ors2) > 0:
                 z3_clauses.append(z3.Or(ors1))
@@ -110,9 +99,8 @@ class VariabilityModel:
                 z3_clauses.append(ors1[0])
                 z3_clauses.append(ors2[0])
 
-
         return z3_clauses
-    
-    
+
+
 if __name__ == "__main__":
     pass

@@ -8,13 +8,7 @@ from pycosa.lib import OptionExhaustionError
 
 
 class GroupLearner:
-
-    def __init__(
-            self,
-            options,
-            t1: float = 0.5,
-            t2: float = 0.1
-    ):
+    def __init__(self, options, t1: float = 0.5, t2: float = 0.1):
         """
         Decides for a given set of options and measurements, whether the set of options
         is influential and/or interacting with further features.
@@ -31,17 +25,11 @@ class GroupLearner:
         self.options = set(options)
 
         self.records = {
-            option: {
-                "influential": 0,
-                "interacting": 0
-            } for option in self.options
+            option: {"influential": 0, "interacting": 0} for option in self.options
         }
 
     def classify(
-            self,
-            group: Sequence[str],
-            perf_en: np.array,
-            perf_dis: np.array
+        self, group: Sequence[str], perf_en: np.array, perf_dis: np.array
     ) -> None:
         """
         Decides for a given set of options and measurements, whether the set of options
@@ -62,14 +50,14 @@ class GroupLearner:
         # of the observed performance.
         # TODO remove 3 and replace with meaningful threshold
         less_or_equals_t1 = [
-            deltas[i] <= self.t1 * min(abs(perf_en[i]), abs(perf_dis[i])) or deltas[i] < 3 for i in range(n_pairs)
+            deltas[i] <= self.t1 * min(abs(perf_en[i]), abs(perf_dis[i]))
+            or deltas[i] < 3
+            for i in range(n_pairs)
         ]
 
         # Collect pairs where the performance difference is greater than to a percentage (t1)
         # of the observed performance.
-        greater_than_t1 = [
-            (not g) for g in less_or_equals_t1
-        ]
+        greater_than_t1 = [(not g) for g in less_or_equals_t1]
 
         # Collect pairs where the performance difference is greater than to a percentage (t2)
         # of the observed mean performance difference.
@@ -104,7 +92,7 @@ class GroupLearner:
     def __record_influentials(self, options: Sequence[str]) -> None:
         """
         Keep track of options that are classified as influential.
-        
+
         @param List of options to keep track of.
         """
         for option in options:
@@ -113,7 +101,7 @@ class GroupLearner:
     def __record_interactings(self, options: Sequence[str]) -> None:
         """
         Keep track of options that are classified as interacting.
-        
+
         @param List of options to keep track of.
         """
         for option in options:
@@ -122,7 +110,7 @@ class GroupLearner:
     def __drop_options(self, options: Sequence[str]) -> None:
         """
         Drop passed options from pool for re-grouping.
-        
+
         @param List of options to drop
         """
         self.options = self.options - set(options)
@@ -140,9 +128,7 @@ class GroupLearner:
 
         if group_size > 0:
             options = np.random.choice(
-                list(self.options),
-                size=group_size,
-                replace=False
+                list(self.options), size=group_size, replace=False
             )
         else:
             msg = f"Not enough options left to suggest a group (previous ones have already been discarded.)"
@@ -158,14 +144,10 @@ class GroupLearner:
         -------
         @return: pd.DataFrame with statistics
         """
-        df = pd.DataFrame(
-            self.records,
-            columns=self.records.keys(),
-            index=False
-        )
-        
+        df = pd.DataFrame(self.records, columns=self.records.keys(), index=False)
+
         return df
-        
+
 
 if __name__ == "__main__":
     pass

@@ -9,37 +9,26 @@ import numpy as np
 
 
 class _Sampler:
-
     def __init__(self, vm: modeling.VariabilityModel):
         self.clauses = vm.get_binary_clauses()
         self.bin_features = vm.get_binary_features()
 
-    def sample(
-            self,
-            size: int = 10
-    ) -> pd.DataFrame:
+    def sample(self, size: int = 10) -> pd.DataFrame:
         pass
 
-    def _create_uniqueness_constraint(
-            self,
-            model: z3.ModelRef
-    ) -> z3.Or:
+    def _create_uniqueness_constraint(self, model: z3.ModelRef) -> z3.Or:
         literals = [z3.Bool(literal) for literal in self.bin_features]
-        exclusion_constraint = z3.Or([
-            p != model.evaluate(p, model_completion=True) for p in literals
-        ])
+        exclusion_constraint = z3.Or(
+            [p != model.evaluate(p, model_completion=True) for p in literals]
+        )
         return exclusion_constraint
 
 
 class DFSSampler(_Sampler):
-
     def __init__(self, vm):
         super().__init__(vm)
 
-    def sample(
-            self,
-            size: int = 10
-    ) -> pd.DataFrame:
+    def sample(self, size: int = 10) -> pd.DataFrame:
         solver = z3.Solver()
         solver.add(self.clauses)
 
@@ -69,14 +58,10 @@ class DFSSampler(_Sampler):
 
 
 class DistanceBasedSampler(_Sampler):
-
     def __init__(self, vm: modeling.VariabilityModel):
         super().__init__(vm)
 
-    def sample(
-            self,
-            size: int = 10
-    ) -> pd.DataFrame:
+    def sample(self, size: int = 10) -> pd.DataFrame:
 
         n_options = len(self.bin_features)
 
@@ -124,12 +109,7 @@ class GroupSampler:
         self.bin_features = vm.get_binary_features()
         self.clauses = self.vm.get_z3_pair_clauses()
 
-
-    def sample(
-            self,
-            options: Sequence[str],
-            size: int
-    ):
+    def sample(self, options: Sequence[str], size: int):
         old_solutions = []
 
         enabled = []
@@ -214,6 +194,7 @@ class GroupSampler:
         disabled = pd.DataFrame(disabled)
 
         return enabled, disabled
+
 
 class OfflineSampler:
     """

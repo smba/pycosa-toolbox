@@ -23,13 +23,13 @@ if __name__ == "__main__":
     vm = modeling.VariabilityModel()
     vm.from_dimacs(parser.get_clauses(), parser.get_index2features())
     np.random.seed(1)
-    
+
     sampler = sampling.DFSSampler(vm)
     sample = sampler.sample(34)
-    
+
     sampler = sampling.DistanceBasedSampler(vm)
     sampl2 = sampler.sample(34)
-    
+
     print(sample, sampl2)
     """
     vm = modeling.VariabilityModel()
@@ -87,4 +87,3 @@ if __name__ == "__main__":
     #plt.xticks(rotation=90)
     #plt.show()
     """
-        
