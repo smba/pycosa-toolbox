@@ -2,16 +2,14 @@
 # -*- coding: utf-8 -*-
 
 from typing import Sequence
-import xmltodict
-import z3
 
 
 class Parser:
     def __init__(self):
 
-        self._index_to_feature = None
-        self._feature_to_index = None
-        self.clauses = []
+        self._index_to_feature = dict()
+        self._feature_to_index = dict()
+        self._clauses = []
 
     def get_feature(self, index: int) -> str:
 
@@ -63,10 +61,6 @@ class DimacsParser(Parser):
 
     def parse(self, path: str) -> None:
 
-        self._index_to_feature = dict()
-        self._feature_to_index = dict()
-        self._clauses = []
-
         with open(path, "r") as file:
             lines = file.readlines()
 
@@ -86,14 +80,8 @@ class DimacsParser(Parser):
                 self._index_to_feature[index] = feature_name
                 self._feature_to_index[feature_name] = index
 
-            elif start == "p":  # p = .. something, used for validation
-
-                line = line.split(" ")
-                n_options = int(line[2])
-                n_clauses = int(line[3])
-
-                assert len(self._index_to_feature) == len(self._feature_to_index)
-                assert len(self._index_to_feature) == n_options
+            elif start == "p":  # p = .. used for validation only
+                pass
 
             else:  # any other line should specify a clause
                 line = line.split(" ")
@@ -101,39 +89,6 @@ class DimacsParser(Parser):
 
                 clause = [int(literal) for literal in line[:-1]]
                 self._clauses.append(clause)
-
-
-class FeatureIdeParser(Parser):
-    def __init__(
-        self,
-    ):
-        raise NotImplementedError()
-
-    def parse(self, path: str) -> None:
-        raise NotImplementedError()
-
-
-class SPLCParser(Parser):
-    def __init__(
-        self,
-    ):
-        super().__init__()
-
-    def _create_mapping(self, dom):
-        raise NotImplementedError()
-
-    def parse(self, path: str) -> None:
-        raise NotImplementedError()
-
-
-class SPLOTParser(Parser):
-    def __init__(
-        self,
-    ):
-        raise NotImplementedError()
-
-    def parse(self, path: str) -> None:
-        raise NotImplementedError()
 
 
 if __name__ == "__main__":
