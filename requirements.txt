@@ -4,8 +4,5 @@ numpy
 networkx
 pyeda
 xmltodict
-pyDOE2
 statsmodels
-matplotlib
 pytest
-sklearn
