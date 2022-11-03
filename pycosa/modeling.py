@@ -1,5 +1,5 @@
 import itertools
-from typing import Sequence
+from typing import Sequence, Dict
 
 import numpy as np
 import z3
@@ -7,6 +7,7 @@ import z3
 
 class VariabilityModel:
     def __init__(self):
+
         self.binary_options = dict()
 
         self.dimacs = None
@@ -14,7 +15,11 @@ class VariabilityModel:
         self.bin_feature_to_index = None
         self.bin_index_to_feature = None
 
-    def from_dimacs(self, dimacs, index2features):
+    def from_dimacs(
+            self,
+            dimacs: Sequence[Sequence[int]],
+            index2features: Dict[int, str]
+    ) -> None:
 
         self.bin_feature_to_index = {k: v for v, k in index2features.items()}
         self.bin_index_to_feature = index2features
@@ -25,7 +30,11 @@ class VariabilityModel:
         self.binary_clauses = z3_clauses
         self.binary_options = index2features.values()
 
-    def _generate_z3_clauses(self, clauses):
+    def _generate_z3_clauses(
+            self,
+            clauses: Sequence[Sequence[int]]
+    ) -> Sequence[z3.BoolRef]:
+
         z3_clauses = []
         for clause in clauses:
             ors = []
@@ -48,13 +57,13 @@ class VariabilityModel:
 
         return z3_clauses
 
-    def get_binary_clauses(self):
+    def get_binary_clauses(self) -> Sequence[z3.BoolRef]:
         return self.binary_clauses
 
-    def get_binary_features(self):
+    def get_binary_features(self) -> Sequence[str]:
         return list(self.binary_options)
 
-    def shuffle(self):
+    def shuffle(self) -> None:
         clauses = []
         for clause in self.dimacs:
             idx = np.random.choice(len(clause), replace=False, size=len(clause))
@@ -67,7 +76,7 @@ class VariabilityModel:
         self.dimacs = new_clauses
         self.binary_clauses = self._generate_z3_clauses(new_clauses)
 
-    def get_z3_pair_clauses(self):
+    def get_z3_pair_clauses(self) -> Sequence[z3.BoolRef]:
         z3_clauses = []
 
         for clause in self.dimacs:

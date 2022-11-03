@@ -91,7 +91,5 @@ class DimacsParser(Parser):
                 self._clauses.append(clause)
 
 
-        
-    
 if __name__ == "__main__":
     pass

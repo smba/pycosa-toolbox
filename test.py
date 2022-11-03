@@ -19,10 +19,21 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     parser = parsing.DimacsParser()
-    parser.parse("_test_data/feature_models/unconstrained.dimacs")
-    np.random.seed(1)
+    parser.parse("_test_data/feature_models/h2.dimacs")
     vm = modeling.VariabilityModel()
-    vm.from_parser(parser)
+    vm.from_dimacs(parser.get_clauses(), parser.get_index2features())
+    np.random.seed(1)
+    
+    sampler = sampling.DFSSampler(vm)
+    sample = sampler.sample(34)
+    
+    sampler = sampling.DistanceBasedSampler(vm)
+    sampl2 = sampler.sample(34)
+    
+    print(sample, sampl2)
+    """
+    vm = modeling.VariabilityModel()
+    vm.from_dimacs(parser.get_clauses(), parser.get_index2features())
 
     avm = AttributedVariabilityModelGenerator(vm)
     d = learning.GroupLearner(vm.get_binary_features())
@@ -75,4 +86,5 @@ if __name__ == "__main__":
     #plt.bar(d.coverage.keys(), d.coverage.values())
     #plt.xticks(rotation=90)
     #plt.show()
+    """
         
