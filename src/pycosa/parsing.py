@@ -6,6 +6,7 @@ from typing import Sequence
 import xmlschema
 import itertools
 
+
 class Parser:
     def __init__(self):
 
