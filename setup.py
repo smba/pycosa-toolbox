@@ -19,7 +19,7 @@ setup_args = dict(
     ],
     python_requires=">=3.8",
     # ehem
-    packages=find_packages(where="src"),
+    packages=setuptools.find_packages(where="src"),
     package_dir={"": "src"},
     include_package_data=True,
 )
