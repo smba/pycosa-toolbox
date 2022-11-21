@@ -24,7 +24,7 @@ def read_measurements(path, METRIC):
                 for option in options:
                     features.add(option)
                 configs.append(options)
-    
+
     res = []
     performance = np.array(performance)
     # make data frame
@@ -32,17 +32,13 @@ def read_measurements(path, METRIC):
     for i, config in enumerate(configs):
         encoded = [1 if f in config else 0 for f in features]
         encoded += [performance[i]]
-        
+
         res.append(encoded)
 
     res = np.vstack(res)
-    df = pd.DataFrame(
-        res,
-        columns = features + [METRIC],
-        index = np.arange(len(configs))
-    )
-    
+    df = pd.DataFrame(res, columns=features + [METRIC], index=np.arange(len(configs)))
+
     for f in features:
-        df[f] = df[f].astype('bool')
-    
+        df[f] = df[f].astype("bool")
+
     return df
