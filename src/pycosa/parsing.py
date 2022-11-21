@@ -7,6 +7,7 @@ import xmlschema
 import itertools
 import pathlib
 
+
 class Parser:
     def __init__(self):
 
