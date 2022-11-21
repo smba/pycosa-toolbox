@@ -101,7 +101,7 @@ class SPLCParser(Parser):
     ):
         super().__init__()
         here = pathlib.Path(__file__).parent.resolve()
-        self.schema = xmlschema.XMLSchema(here + "/resources/splc.xsd")
+        self.schema = xmlschema.XMLSchema(str(here) + "/resources/splc.xsd")
 
     def _alternative_group(self, mutex_options):
         constraints = []
