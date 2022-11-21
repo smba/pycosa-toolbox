@@ -5,7 +5,7 @@ from typing import Sequence
 
 import xmlschema
 import itertools
-
+import pathlib
 
 class Parser:
     def __init__(self):
@@ -99,7 +99,8 @@ class SPLCParser(Parser):
         self,
     ):
         super().__init__()
-        self.schema = xmlschema.XMLSchema("resources/splc.xsd")
+        here = pathlib.Path(__file__).parent.resolve()
+        self.schema = xmlschema.XMLSchema(here + "/resources/splc.xsd")
 
     def _alternative_group(self, mutex_options):
         constraints = []
