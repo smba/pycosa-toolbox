@@ -90,6 +90,72 @@ class DimacsParser(Parser):
                 clause = [int(literal) for literal in line[:-1]]
                 self._clauses.append(clause)
 
+class SPLCParser(Parser):
+    def __init__(
+        self,
+    ):
+        super().__init__()
+        self.schema = xmlschema.XMLSchema("../_test_data/meta/splc.xsd")
+        
 
+    def _alternative_group(self, mutex_options):
+        constraints = []
+        for a, b in itertools.combinations(mutex_options, 2):
+            constraints.append(
+                [-1*a, -1*b]
+            )
+        return constraints
+
+    def _or_group(self, options):
+        constraints = [o for o in options]
+        return constraints
+
+    def _parent(self, child, parent):
+        return [-1*child, parent]
+  
+    def _mandatory(self, option):
+        return [option] 
+    
+    def parse(self, path: str) -> None:
+        
+        xml = self.schema.to_dict(path)
+        
+        constraints = []
+        literals = []
+        
+        self._clauses = []
+        
+        self.options = {}
+        
+        mutex_groups = []
+        for index, option in enumerate(xml['binaryOptions']['configurationOption']):
+            name = option["name"]
+            self.options[name] = index + 1
+        
+        for option in xml['binaryOptions']['configurationOption']:
+            name = option["name"]
+            parent = option["parent"]
+            literals.append(z3.Bool(name))
+            
+            if parent.strip() != "":
+                self._clauses.append(self.dimacs_create_parent_constraint(
+                    self.options[name], 
+                    self.options[parent]
+                ))
+            
+            # check if option is optional
+            is_optional = option['optional']
+            if not is_optional:
+                self._clauses.append(
+                    self.options[name]
+                )
+
+            if option['excludedOptions'] is not None:
+                mutexes = option['excludedOptions']['options']
+
+                self._clauses.append(self.dimacs_create_alternative_group(
+                    [self.options[i] for i in mutexes]    
+                ))
+                
 if __name__ == "__main__":
     pass
