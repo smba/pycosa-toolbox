@@ -6,3 +6,4 @@ pyeda
 xmltodict
 statsmodels
 pytest
+xmlschema
