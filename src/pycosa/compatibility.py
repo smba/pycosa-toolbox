@@ -15,7 +15,11 @@ def read_measurements(path, METRIC):
             col = data.attrib["columname"]
             val = data.text.strip()
             if col == METRIC:
-                perf = float(val)
+                if "," in val:
+                    values =  [float(v) for v in val.split(",")]
+                    perf = np.median(values)
+                else:
+                    perf = float(val)
                 performance.append(perf)
 
             elif col == "Configuration":
