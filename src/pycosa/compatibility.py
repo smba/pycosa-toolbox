@@ -16,7 +16,7 @@ def read_measurements(path, METRIC):
             val = data.text.strip()
             if col == METRIC:
                 if "," in val:
-                    values =  [float(v) for v in val.split(",")]
+                    values = [float(v) for v in val.split(",")]
                     perf = np.median(values)
                 else:
                     perf = float(val)
