@@ -48,10 +48,8 @@ class GroupLearner:
 
         # Collect pairs where the performance difference is less than or equal to a percentage (t1)
         # of the observed performance.
-        # TODO remove 3 and replace with meaningful threshold
         less_or_equals_t1 = [
             deltas[i] <= self.t1 * min(abs(perf_en[i]), abs(perf_dis[i]))
-            or deltas[i] < 3
             for i in range(n_pairs)
         ]
 
