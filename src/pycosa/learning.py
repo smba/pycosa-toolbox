@@ -62,14 +62,18 @@ class GroupLearner:
         greater_than_t2 = [
             abs(delta - mean_delta) > (self.t2 * mean_delta) for delta in deltas
         ]
+        t2_check = np.mean(deltas) > self.t2
 
         # We distinguish four different cases
         if all(greater_than_t1):
 
             # Case 1: All effects appear to be non-zero (hence, influential), but some
             # effects show wide spread (hence, some are interacting)
-            if any(greater_than_t2):
-                self.__record_influentials(group)
+            #if any(greater_than_t2):
+            #    self.__record_influentials(group)
+            #    self.__record_interactings(group)
+
+            if t2_check:
                 self.__record_interactings(group)
 
             # Case 2: All effects appear to be non-zero (hence, influential), none
