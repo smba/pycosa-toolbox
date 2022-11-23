@@ -69,7 +69,7 @@ class GroupLearner:
 
             # Case 1: All effects appear to be non-zero (hence, influential), but some
             # effects show wide spread (hence, some are interacting)
-            #if any(greater_than_t2):
+            # if any(greater_than_t2):
             #    self.__record_influentials(group)
             #    self.__record_interactings(group)
 
