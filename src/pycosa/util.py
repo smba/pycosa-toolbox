@@ -41,7 +41,6 @@ def get_vif(df: pd.DataFrame, threshold: float = 5.0):
 
 
 def remove_multicollinearity(df: pd.DataFrame):
-
     # courtesy by johannes
 
     # remove columns with identical values (dead features or mandatory features)
@@ -176,7 +175,6 @@ def construct_categorical_variable(
 def construct_interaction_terms(
     df: pd.DataFrame, categorical_column: str, sep: str = "__", drop_old: bool = True
 ):
-
     # get set of unique values
     unique_values = df[categorical_column].unique()
 

@@ -4,7 +4,6 @@ import numpy as np
 
 
 def read_measurements(path, METRIC):
-
     root = ET.parse(path).getroot()
 
     features = set([])

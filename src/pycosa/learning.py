@@ -66,7 +66,6 @@ class GroupLearner:
 
         # We distinguish four different cases
         if all(greater_than_t1):
-
             # Case 1: All effects appear to be non-zero (hence, influential), but some
             # effects show wide spread (hence, some are interacting)
             # if any(greater_than_t2):

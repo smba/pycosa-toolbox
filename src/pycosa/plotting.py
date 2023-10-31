@@ -20,7 +20,6 @@ def mirrored_histogram(
     medians: bool = True,
     legend: bool = True,
 ):
-
     # init figure
     plt.figure()
     fig, ax = plt.subplots(figsize=figsize)
@@ -36,7 +35,6 @@ def mirrored_histogram(
 
     # plot means
     if medians:
-
         # normalize
         ymin, ymax = ax.get_ylim()
         yrange = ymax - ymin

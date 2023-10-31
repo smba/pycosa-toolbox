@@ -7,7 +7,6 @@ import z3
 
 class VariabilityModel:
     def __init__(self):
-
         self.binary_options = dict()
 
         self.dimacs = None
@@ -18,7 +17,6 @@ class VariabilityModel:
     def from_dimacs(
         self, dimacs: Sequence[Sequence[int]], index2features: Dict[int, str]
     ) -> None:
-
         self.bin_feature_to_index = {k: v for v, k in index2features.items()}
         self.bin_index_to_feature = index2features
 
@@ -31,7 +29,6 @@ class VariabilityModel:
     def _generate_z3_clauses(
         self, clauses: Sequence[Sequence[int]]
     ) -> Sequence[z3.BoolRef]:
-
         z3_clauses = []
         for clause in clauses:
             ors = []
