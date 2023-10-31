@@ -34,7 +34,6 @@ class DFSSampler(_Sampler):
 
         solutions = []
         for i in range(size):
-
             if solver.check() == z3.sat:
                 model = solver.model()
 
@@ -56,11 +55,12 @@ class DFSSampler(_Sampler):
         df = pd.DataFrame(solutions)
         return df
 
+
 class CoverageBasedSampler(_Sampler):
     def __init__(self, vm):
         super().__init__(vm)
 
-    def sample(self, t = 1, negative_wise = False) -> pd.DataFrame:
+    def sample(self, t=1, negative_wise=False) -> pd.DataFrame:
         solver = z3.Solver()
         solver.add(self.clauses)
 
@@ -68,14 +68,14 @@ class CoverageBasedSampler(_Sampler):
         assert t > 0
         for term in itertools.combinations(self.bin_feature, t):
             solver.push()
-            
+
             # construct constraints
             for option in term:
                 if not negative_wise:
                     solver.add(z3.Bool(option))
                 else:
                     solver.add(z3.Not(z3.Bool(option)))
-            
+
             if solver.check() == z3.sat:
                 # keep record of solution
                 solution = {}
@@ -86,19 +86,17 @@ class CoverageBasedSampler(_Sampler):
                     else:
                         solution[literal] = False
                 solutions.append(solution)
-                
+
             solver.pop()
-            
+
             # add uniqueness constraint
             uniqueness_constraint = self._create_uniqueness_constraint(model)
             solver.add(uniqueness_constraint)
-        
+
         df = pd.DataFrame(solutions)
         return df
-        
-        
-        for i in range(size):
 
+        for i in range(size):
             if solver.check() == z3.sat:
                 model = solver.model()
 
@@ -120,12 +118,12 @@ class CoverageBasedSampler(_Sampler):
         df = pd.DataFrame(solutions)
         return df
 
+
 class DistanceBasedSampler(_Sampler):
     def __init__(self, vm: modeling.VariabilityModel):
         super().__init__(vm)
 
     def sample(self, size: int = 10) -> pd.DataFrame:
-
         n_options = len(self.bin_features)
 
         # Construct some Solver instances
@@ -139,7 +137,6 @@ class DistanceBasedSampler(_Sampler):
 
         solutions = []
         for i in range(size):
-
             d = np.random.choice(np.arange(n_options), size=1, replace=True)[0]
             d = int(d)
 
@@ -202,7 +199,6 @@ class GroupSampler:
 
             for option in self.bin_features:
                 if option in options:
-
                     solver.add(
                         z3.And(z3.Bool(f"{option}-1"), z3.Not(z3.Bool(f"{option}-2")))
                     )
@@ -266,14 +262,12 @@ class OfflineSampler:
     """
 
     def __init__(self, df: pd.DataFrame, shuffle=False):
-
         if shuffle:
             df = df.sample(frac=1)
 
         self.df = df
 
     def elementary_effect_sample(self, options: Sequence[object], size: int = 100):
-
         df = self.df.copy()
 
         df["selected"] = df[options].all(axis=1)

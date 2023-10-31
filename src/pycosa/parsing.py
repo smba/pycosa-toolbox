@@ -10,13 +10,11 @@ import pathlib
 
 class Parser:
     def __init__(self):
-
         self._index_to_feature = dict()
         self._feature_to_index = dict()
         self._clauses = []
 
     def get_feature(self, index: int) -> str:
-
         if self._index_to_feature is None:
             msg = "No feature model parsed yet! Use {}.parse() first."
             msg = msg.format(self.__class__)
@@ -29,7 +27,6 @@ class Parser:
             raise ValueError(msg)
 
     def get_index(self, feature_name: str) -> int:
-
         if self._feature_to_index is None:
             msg = "No feature model parsed yet! Use {}.parse() first."
             msg = msg.format(self.__class__)
@@ -64,14 +61,12 @@ class DimacsParser(Parser):
         super().__init__()
 
     def parse(self, path: str) -> None:
-
         with open(path, "r") as file:
             lines = file.readlines()
 
         lines = [line.replace("\n", "") for line in lines]
 
         for line in lines:
-
             # TODO replace with pattern matching for Python >= 3.10
             start = line[0]
 
@@ -120,7 +115,6 @@ class SPLCParser(Parser):
         return [option]
 
     def parse(self, path: str) -> None:
-
         xml = self.schema.to_dict(path)
 
         constraints = []
