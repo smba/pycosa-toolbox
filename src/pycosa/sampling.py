@@ -4,7 +4,7 @@ import pandas as pd
 import z3
 
 import pycosa.modeling as modeling
-
+import itertools
 import numpy as np
 
 
@@ -56,6 +56,69 @@ class DFSSampler(_Sampler):
         df = pd.DataFrame(solutions)
         return df
 
+class CoverageBasedSampler(_Sampler):
+    def __init__(self, vm):
+        super().__init__(vm)
+
+    def sample(self, t = 1, negative_wise = False) -> pd.DataFrame:
+        solver = z3.Solver()
+        solver.add(self.clauses)
+
+        solutions = []
+        assert t > 0
+        for term in itertools.combinations(self.bin_feature, t):
+            solver.push()
+            
+            # construct constraints
+            for option in term:
+                if not negative_wise:
+                    solver.add(z3.Bool(option))
+                else:
+                    solver.add(z3.Not(z3.Bool(option)))
+            
+            if solver.check() == z3.sat:
+                # keep record of solution
+                solution = {}
+                for literal in self.bin_features:
+                    val = model[z3.Bool(literal)]
+                    if val is not None:
+                        solution[literal] = val.__bool__()
+                    else:
+                        solution[literal] = False
+                solutions.append(solution)
+                
+            solver.pop()
+            
+            # add uniqueness constraint
+            uniqueness_constraint = self._create_uniqueness_constraint(model)
+            solver.add(uniqueness_constraint)
+        
+        df = pd.DataFrame(solutions)
+        return df
+        
+        
+        for i in range(size):
+
+            if solver.check() == z3.sat:
+                model = solver.model()
+
+                # keep record of solution
+                solution = {}
+                for literal in self.bin_features:
+                    val = model[z3.Bool(literal)]
+                    if val is not None:
+                        solution[literal] = val.__bool__()
+                    else:
+                        solution[literal] = False
+
+                solutions.append(solution)
+
+                # add uniqueness constraint
+                uniqueness_constraint = self._create_uniqueness_constraint(model)
+                solver.add(uniqueness_constraint)
+
+        df = pd.DataFrame(solutions)
+        return df
 
 class DistanceBasedSampler(_Sampler):
     def __init__(self, vm: modeling.VariabilityModel):
