@@ -66,7 +66,7 @@ class CoverageBasedSampler(_Sampler):
 
         solutions = []
         assert t > 0
-        for term in itertools.combinations(self.bin_feature, t):
+        for term in itertools.combinations(self.bin_features, t):
             solver.push()
             
             # construct constraints
