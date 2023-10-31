@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup_args = dict(
     name="pycosa",
-    version="0.1.5",
+    version="0.1.6",
     author="Stefan Mühlbauer",
     author_email="s.muehlbauer@mars.ucc.ie",
     description="Configuration sampling toolbox in Python.",
