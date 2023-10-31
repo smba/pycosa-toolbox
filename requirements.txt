@@ -7,3 +7,4 @@ xmltodict
 statsmodels
 pytest
 xmlschema
+sklearn
