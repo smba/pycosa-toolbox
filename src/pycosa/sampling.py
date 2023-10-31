@@ -77,9 +77,8 @@ class CoverageBasedSampler(_Sampler):
                     solver.add(z3.Not(z3.Bool(option)))
 
             if solver.check() == z3.sat:
-                
                 model = solver.model()
-                
+
                 # keep record of solution
                 solution = {}
                 for literal in self.bin_features:
