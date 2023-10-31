@@ -8,3 +8,4 @@ statsmodels
 pytest
 xmlschema
 scikit-learn
+matplotlib
