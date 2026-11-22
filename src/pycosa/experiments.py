@@ -10,6 +10,7 @@ class SyntheticDataGenerator:
         p_terms: float = 0.8,
         p_alphas: float = 0.001,
         noise: float = 0.3,
+        seed=None,
     ):
         """
         Generate a ground-truth performance model that predicts the performance of arbitrary configurations.
@@ -24,6 +25,10 @@ class SyntheticDataGenerator:
         5) Noise factor (normal distribution)
         """
 
+        rng = np.random.default_rng(seed)
+        self._rng = rng
+        self.noise = noise
+
         _options = np.arange(n_options)
         self.n_options = n_options
 
@@ -31,51 +36,58 @@ class SyntheticDataGenerator:
         n_terms = max(1, int(p_factors * n_options))
 
         # Size (number of options) for each term
-        n_factors = np.random.geometric(p_terms, size=n_terms)
+        n_factors = rng.geometric(p_terms, size=n_terms)
         n_factors = [min(nf, n_options) for nf in n_factors]
 
         terms = [
-            np.random.choice(_options, size=nf, replace=False).tolist()
-            for nf in n_factors
+            rng.choice(_options, size=nf, replace=False).tolist() for nf in n_factors
         ]
 
         self.terms = terms
         # estimate the alphas for dirichlet
-        alphas = np.random.geometric(p_alphas, size=n_terms)
+        alphas = rng.geometric(p_alphas, size=n_terms)
 
         # sample how much variance a term explains
-        variance = np.random.dirichlet(alphas, 1)
+        variance = rng.dirichlet(alphas, 1)
         influence = variance * 1000
 
         # p.linspace(0.01, 0.15, 5)
-        influence *= np.random.choice([-1, 1], size=influence.shape)
+        influence *= rng.choice([-1, 1], size=influence.shape)
         influence = influence[0]
         self.influence = influence
 
-        self.model = lambda x: np.sum(
-            [
-                np.all([x[i] for i in term]) * influence[j]
-                for j, term in enumerate(terms)
-            ]
-        ) + np.random.normal(0, noise)
-
     def get_performance(self, x) -> float:
-        return self.model(x)
+        x = np.asarray(x)
+        value = sum(
+            float(np.all(x[term])) * self.influence[j]
+            for j, term in enumerate(self.terms)
+        )
+        return value + self._rng.normal(0, self.noise)
+
+    def get_performances(self, X) -> np.ndarray:
+        """Vectorized version of get_performance for a 2D array of configurations."""
+        X = np.asarray(X, dtype=bool)
+        value = np.zeros(X.shape[0])
+        for term, influence in zip(self.terms, self.influence):
+            value += X[:, term].all(axis=1) * influence
+        return value + self._rng.normal(0, self.noise, size=X.shape[0])
 
     def get_coefs(self):
         return list(zip(self.terms, self.influence))
 
 
 class AttributedVariabilityModelGenerator:
-    def __init__(self, vm: modeling.VariabilityModel):
+    def __init__(self, vm: modeling.VariabilityModel, seed=None):
         self.vm = vm
         self.performance_model = SyntheticDataGenerator(
-            n_options=len(self.vm.get_binary_features()), p_factors=0.3, p_terms=0.7
+            n_options=len(self.vm.get_binary_features()),
+            p_factors=0.3,
+            p_terms=0.7,
+            seed=seed,
         )
 
     def get_performances(self, X):
-        perf = [self.performance_model.get_performance(x) for x in X]
-        return np.array(perf)
+        return self.performance_model.get_performances(np.asarray(X))
 
 
 if __name__ == "__main__":

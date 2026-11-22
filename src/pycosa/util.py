@@ -1,10 +1,7 @@
 import pandas as pd
 import networkx as nx
 import logging
-import math
 import numpy as np
-
-from sklearn.preprocessing import OneHotEncoder
 
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
@@ -40,53 +37,48 @@ def get_vif(df: pd.DataFrame, threshold: float = 5.0):
     return vif_data
 
 
-def remove_multicollinearity(df: pd.DataFrame):
-    # courtesy by johannes
+def remove_multicollinearity(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Removes sources of perfect multicollinearity from a data frame of binary
+    configuration options (courtesy of Johannes):
+
+    1. columns with a single value (mandatory or dead options), and
+    2. for each alternative group (set of mutually exclusive options of which
+       exactly one is selected in every row), one (the alphabetically first)
+       option of the group.
+
+    Non-binary columns are kept unchanged and not considered for (2).
+    """
+    df = df.copy()
 
     # remove columns with identical values (dead features or mandatory features)
     nunique = df.nunique()
-    mandatory_or_dead = nunique[nunique == 1].index.values
-
-    df = df.drop(columns=mandatory_or_dead)
+    df = df.drop(columns=nunique[nunique <= 1].index)
 
     if "Unnamed: 0" in df.columns:
         df = df.drop(columns=["Unnamed: 0"])
 
-    df_configs = df
-    alternative_ft = []
-    alternative_ft_names = []
-    group_candidates = {}
+    binary = [c for c in df.columns if set(pd.unique(df[c])) <= {0, 1, True, False}]
+    if len(binary) < 2:
+        return df
 
-    for i, col in enumerate(df_configs.columns):
-        filter_on = df_configs[col] == 1
-        filter_off = df_configs[col] == 0
-        group_candidates[col] = []
-        for other_col in df_configs.columns:
-            if other_col != col:
-                values_if_col_on = df_configs[filter_on][other_col].unique()
-                if len(values_if_col_on) == 1 and values_if_col_on[0] == 0:
-                    # other feature is always off if col feature is on
-                    group_candidates[col].append(other_col)
+    X = df[binary].to_numpy(dtype=float)
+    # co-occurrence counts: cooc[i, j] == 0 <=> options i and j are never
+    # selected together, i.e., they are mutually exclusive in the data
+    cooc = X.T @ X
 
     G = nx.Graph()
-    for ft, alternative_candidates in group_candidates.items():
-        for candidate in alternative_candidates:
-            if ft in group_candidates[candidate]:
-                G.add_edge(ft, candidate)
+    rows, cols = np.nonzero(np.triu(cooc == 0, k=1))
+    G.add_edges_from((binary[i], binary[j]) for i, j in zip(rows, cols))
 
     cliques_remaining = True
     while cliques_remaining:
         cliques_remaining = False
-        cliques = nx.find_cliques(G)
-        for clique in cliques:
+        for clique in nx.find_cliques(G):
             # check if exactly one col is 1 in each row
-            sums_per_row = df_configs[clique].sum(axis=1).unique()
-            if len(sums_per_row) == 1 and sums_per_row[0] == 1.0:
-                delete_ft = sorted(clique)[0]
-                alternative_ft_names.append(delete_ft)
-                df_configs.drop(delete_ft, inplace=True, axis=1)
-                for c in clique:
-                    G.remove_node(c)
+            if (df[clique].astype(float).sum(axis=1) == 1.0).all():
+                df = df.drop(columns=sorted(clique)[0])
+                G.remove_nodes_from(clique)
                 cliques_remaining = True
                 break
 
@@ -116,19 +108,19 @@ def reconstruct_categorical_variable(
         Transformed data frame with new  column.
     """
 
-    maximums = df[replace_map.keys()].idxmax(axis=1)
+    maximums = df[list(replace_map.keys())].idxmax(axis=1)
     maximums = maximums.replace(replace_map)
     df[new_option] = maximums
 
     if drop_old:
-        df = df.drop(columns=replace_map.keys())
+        df = df.drop(columns=list(replace_map.keys()))
 
     return df
 
 
 def construct_categorical_variable(
     df: pd.DataFrame, categorical_column: str, drop_old: bool = True
-):
+) -> pd.DataFrame:
     """
     Introduces a dummy variable (one-hot encoding) for each value of a
     categorical variable.
@@ -137,7 +129,7 @@ def construct_categorical_variable(
     ----------
     df : pd.DataFrame
         Data frame containing the independent variables
-    column : str
+    categorical_column : str
         Column to split.
     drop_old : bool, optional
         Should the to-be-replaced columns be dropped? The default is True.
@@ -148,23 +140,18 @@ def construct_categorical_variable(
         Transformed data frame with new columns.
 
     """
-
-    # get set of unique values
-    unique_values = df[categorical_column].unique()
-
-    oh_encoder = OneHotEncoder()
-
-    encoded = oh_encoder.fit_transform(df[categorical_column].values.reshape(-1, 1))
+    values = df[categorical_column]
+    categories = sorted(pd.unique(values), key=str)
 
     expanded = pd.DataFrame(
-        encoded.todense().astype(bool),
-        columns=[
-            "{}_{}".format(categorical_column, i) for i in oh_encoder.categories_[0]
-        ],
+        {
+            "{}_{}".format(categorical_column, c): (values == c).to_numpy()
+            for c in categories
+        },
+        index=df.index,
     )
 
-    # add new columns to dataframe (copy for performance reasons)
-    df = pd.concat([df.copy(), expanded], axis="columns")
+    df = pd.concat([df, expanded], axis="columns")
 
     if drop_old:
         df = df.drop(columns=[categorical_column])
@@ -174,23 +161,26 @@ def construct_categorical_variable(
 
 def construct_interaction_terms(
     df: pd.DataFrame, categorical_column: str, sep: str = "__", drop_old: bool = True
-):
-    # get set of unique values
-    unique_values = df[categorical_column].unique()
+) -> pd.DataFrame:
+    """
+    For each value ``v`` of a categorical column and each other column ``c``,
+    adds an interaction column ``v<sep>c`` that equals ``c`` in rows where the
+    categorical column is ``v`` and 0 otherwise (NaN is treated as 0).
+    """
+    unique_values = pd.unique(df[categorical_column])
+    interacting_columns = [c for c in df.columns if c != categorical_column]
 
-    interacting_columns = df.drop(columns=[categorical_column]).columns
-
+    new_columns = {}
     for uvalue in unique_values:
+        mask = (df[categorical_column] == uvalue).to_numpy()
         for icolumn in interacting_columns:
-            index = df.index[df[categorical_column] == uvalue]
-            new_column = np.zeros(shape=(df.shape[0],))
-            new_column[index] = df.iloc[index][icolumn]
+            values = np.nan_to_num(df[icolumn].to_numpy(dtype=float))
+            new_columns["{}{}{}".format(uvalue, sep, icolumn)] = np.where(
+                mask, values, 0.0
+            )
 
-            # mask NaN as 0
-            new_column = np.nan_to_num(new_column)
-            column_name = "{}{}{}".format(uvalue, sep, icolumn)
-            df[column_name] = new_column
+    df = pd.concat([df, pd.DataFrame(new_columns, index=df.index)], axis="columns")
 
     if drop_old:
-        df = df.drop(columns=[i for i in interacting_columns] + [categorical_column])
+        df = df.drop(columns=interacting_columns + [categorical_column])
     return df

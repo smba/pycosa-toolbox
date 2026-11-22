@@ -1,47 +1,62 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import numpy as np
-from typing import Tuple
+from typing import Optional, Tuple
+
 import matplotlib.pyplot as plt
-import seaborn as sns
+import numpy as np
 from scipy.stats import gaussian_kde
 
 
+def _kde_curve(dist: np.ndarray, bandwidth: float, n_points: int = 256):
+    dist = np.asarray(dist, dtype=float)
+    lo, hi = dist.min(), dist.max()
+    if lo == hi:
+        # degenerate distribution: widen the range a little
+        lo, hi = lo - 0.5, hi + 0.5
+    pad = 0.1 * (hi - lo)
+    x = np.linspace(lo - pad, hi + pad, n_points)
+    return x, gaussian_kde(dist, bw_method=bandwidth)(x)
+
+
 def mirrored_histogram(
-    dist_a: np.array,
-    dist_b: np.array,
+    dist_a: np.ndarray,
+    dist_b: np.ndarray,
     label_a: str,
     label_b: str,
     bandwith: float = 0.05,
-    figsize=(6, 2.5),
-    export_name: str = None,
-    xlabel: str = None,
+    figsize: Tuple[float, float] = (6, 2.5),
+    export_name: Optional[str] = None,
+    xlabel: Optional[str] = None,
     medians: bool = True,
     legend: bool = True,
-):
-    # init figure
-    plt.figure()
-    fig, ax = plt.subplots(figsize=figsize)
+    ax: Optional[plt.Axes] = None,
+) -> plt.Axes:
+    """
+    Plots the kernel density estimates of two distributions mirrored at the
+    x-axis (``dist_a`` above, ``dist_b`` below).
 
-    sns.kdeplot(dist_a, x="var1", fill=True, alpha=1, bw=bandwith, label=label_a)
+    Returns the axes. If ``export_name`` is given, the figure is saved there;
+    otherwise, if no ``ax`` was passed in, the figure is shown.
+    """
+    created = ax is None
+    if created:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
 
-    # plot density chart for var2
-    kde = gaussian_kde(dist_b, bw_method=bandwith)
-    x_range = np.linspace(min(dist_b), max(dist_b), len(dist_b))
+    x_a, y_a = _kde_curve(dist_a, bandwith)
+    x_b, y_b = _kde_curve(dist_b, bandwith)
 
-    sns.lineplot(x=x_range, y=kde(x_range) * -1, color="orange")
-    plt.fill_between(x_range, kde(x_range) * -1, color="orange", label=label_b)
+    ax.plot(x_a, y_a, color="C0")
+    ax.fill_between(x_a, y_a, color="C0", alpha=0.8, label=label_a)
+    ax.plot(x_b, -y_b, color="C1")
+    ax.fill_between(x_b, -y_b, color="C1", alpha=0.8, label=label_b)
 
-    # plot means
     if medians:
-        # normalize
+        # only draw the medians in the respective half of the plot
         ymin, ymax = ax.get_ylim()
-        yrange = ymax - ymin
-
-        # find location of 0
-        y_zero = abs(ymin) / yrange
-
+        y_zero = abs(ymin) / (ymax - ymin)
         ax.axvline(
             np.median(dist_a),
             color="black",
@@ -52,24 +67,26 @@ def mirrored_histogram(
         )
         ax.axvline(np.median(dist_b), color="black", linewidth=0.8, ymin=0, ymax=y_zero)
 
-    # make xticks positive
+    # make y ticks positive on both halves
     ticks = ax.get_yticks()
+    ax.set_yticks(ticks)
     ax.set_yticklabels([round(float(abs(tick)), 2) for tick in ticks])
 
-    plt.ylabel("Density")
+    ax.set_ylabel("Density")
+    ax.axhline(0, color="black", linewidth=0.5)
 
     if legend:
-        plt.legend()  # bbox_to_anchor=(1.3, 0.6)
-
-    plt.axhline(0, color="black", linewidth=0.5)
+        ax.legend()
 
     if xlabel is not None:
-        plt.xlabel(xlabel)
+        ax.set_xlabel(xlabel)
 
     if export_name is not None:
-        plt.savefig(export_name, bbox_inches="tight")
-    else:
+        fig.savefig(export_name, bbox_inches="tight")
+    elif created:
         plt.show()
+
+    return ax
 
 
 if __name__ == "__main__":

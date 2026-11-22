@@ -1,124 +1,175 @@
-import itertools
-from typing import Sequence, Dict
+from typing import Dict, List, Mapping, Optional, Sequence
 
 import numpy as np
 import z3
 
 
 class VariabilityModel:
-    def __init__(self):
-        self.binary_options = dict()
+    """
+    Propositional variability model of binary configuration options.
 
-        self.dimacs = None
-        self.binary_clauses = None
-        self.bin_feature_to_index = None
-        self.bin_index_to_feature = None
+    The model is kept in two representations: a list of DIMACS-style clauses
+    (lists of signed integers) and the equivalent list of z3 constraints.
+    """
+
+    def __init__(self):
+        self.binary_options: List[str] = []
+
+        self.dimacs: Optional[List[List[int]]] = None
+        self.binary_clauses: Optional[List[z3.BoolRef]] = None
+        self.bin_feature_to_index: Optional[Dict[str, int]] = None
+        self.bin_index_to_feature: Optional[Dict[int, str]] = None
+
+        self._vars: Dict[str, z3.BoolRef] = {}
+
+    # ------------------------------------------------------------------ #
+    # construction
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    def from_dimacs_file(cls, path: str) -> "VariabilityModel":
+        """Convenience constructor that parses a DIMACS file."""
+        from pycosa.parsing import DimacsParser
+
+        parser = DimacsParser()
+        parser.parse(path)
+        vm = cls()
+        vm.from_dimacs(parser.get_clauses(), parser.get_index2features())
+        return vm
 
     def from_dimacs(
-        self, dimacs: Sequence[Sequence[int]], index2features: Dict[int, str]
+        self, dimacs: Sequence[Sequence[int]], index2features: Mapping[int, str]
     ) -> None:
-        self.bin_feature_to_index = {k: v for v, k in index2features.items()}
-        self.bin_index_to_feature = index2features
+        index2features = dict(index2features)
 
-        self.dimacs = dimacs
-        z3_clauses = self._generate_z3_clauses(dimacs)
+        # make sure that every variable referenced by a clause has a name
+        for clause in dimacs:
+            for literal in clause:
+                index = abs(int(literal))
+                if index not in index2features:
+                    index2features[index] = "_x{}".format(index)
 
-        self.binary_clauses = z3_clauses
-        self.binary_options = index2features.values()
+        self.bin_index_to_feature = dict(sorted(index2features.items()))
+        self.bin_feature_to_index = {v: k for k, v in self.bin_index_to_feature.items()}
+        self.binary_options = list(self.bin_index_to_feature.values())
+        self._vars = {name: z3.Bool(name) for name in self.binary_options}
+
+        # copy, so that later modifications do not leak into the caller's data
+        self.dimacs = [[int(lit) for lit in clause] for clause in dimacs]
+        self.binary_clauses = self._generate_z3_clauses(self.dimacs)
+
+    # ------------------------------------------------------------------ #
+    # z3 helpers
+    # ------------------------------------------------------------------ #
+
+    def var(self, feature: str) -> z3.BoolRef:
+        """Returns the (cached) z3 variable of a feature."""
+        return self._vars[feature]
+
+    def get_vars(self) -> List[z3.BoolRef]:
+        """Returns the z3 variables of all binary features in feature order."""
+        return [self._vars[f] for f in self.binary_options]
+
+    def _literal(self, literal: int, suffix: str = "") -> z3.BoolRef:
+        name = self.bin_index_to_feature[abs(literal)]
+        var = self._vars[name] if suffix == "" else z3.Bool(name + suffix)
+        return var if literal > 0 else z3.Not(var)
 
     def _generate_z3_clauses(
-        self, clauses: Sequence[Sequence[int]]
-    ) -> Sequence[z3.BoolRef]:
+        self, clauses: Sequence[Sequence[int]], suffix: str = ""
+    ) -> List[z3.BoolRef]:
         z3_clauses = []
         for clause in clauses:
-            ors = []
-            for literal in clause:
-                sign = literal > 0
-                index = abs(literal)
-                feature_name = self.bin_index_to_feature[index]
-
-                if sign:
-                    add = z3.Bool(feature_name)
-                else:
-                    add = z3.Not(z3.Bool(feature_name))
-
-                ors.append(add)
-
-            if len(ors) > 1:
-                z3_clauses.append(z3.Or(ors))
-            else:
+            ors = [self._literal(literal, suffix) for literal in clause]
+            if len(ors) == 0:
+                # the empty clause is unsatisfiable
+                z3_clauses.append(z3.BoolVal(False))
+            elif len(ors) == 1:
                 z3_clauses.append(ors[0])
+            else:
+                z3_clauses.append(z3.Or(ors))
 
         return z3_clauses
 
-    def get_binary_clauses(self) -> Sequence[z3.BoolRef]:
+    def get_binary_clauses(self) -> List[z3.BoolRef]:
         return self.binary_clauses
 
-    def get_binary_features(self) -> Sequence[str]:
+    def get_binary_features(self) -> List[str]:
         return list(self.binary_options)
 
-    def shuffle(self) -> None:
-        clauses = []
-        for clause in self.bin_feature_to_indexdimacs:
-            idx = np.random.choice(len(clause), replace=False, size=len(clause))
-            new_clause = [clause[i] for i in idx]
-            clauses.append(new_clause)
+    def get_z3_pair_clauses(self) -> List[z3.BoolRef]:
+        """
+        Returns the constraints of two independent copies of the model. The
+        variables of the copies are suffixed with '-1' and '-2', respectively.
+        """
+        return self._generate_z3_clauses(
+            self.dimacs, suffix="-1"
+        ) + self._generate_z3_clauses(self.dimacs, suffix="-2")
 
-        idx = np.random.choice(len(clauses), replace=False, size=len(clauses))
-        new_clauses = [clauses[i] for i in idx]
+    # ------------------------------------------------------------------ #
+    # analysis
+    # ------------------------------------------------------------------ #
 
-        self.dimacs = new_clauses
-        self.binary_clauses = self._generate_z3_clauses(new_clauses)
+    def is_valid(self, configuration: Mapping[str, bool]) -> bool:
+        """
+        Checks whether a (partial) configuration satisfies the model.
+        Features missing from the configuration are left unconstrained.
+        """
+        solver = z3.Solver()
+        solver.add(self.binary_clauses)
+        assumptions = [
+            self._vars[f] if bool(v) else z3.Not(self._vars[f])
+            for f, v in configuration.items()
+        ]
+        return solver.check(*assumptions) == z3.sat
 
-    def get_z3_pair_clauses(self) -> Sequence[z3.BoolRef]:
-        z3_clauses = []
+    def is_satisfiable(self) -> bool:
+        return self.is_valid({})
 
-        for clause in self.dimacs:
-            ors1 = []
-            ors2 = []
-            for literal in clause:
-                sign = (literal > 0,)
-                index = abs(literal)
-                feature_name = self.bin_index_to_feature[index]
+    def core_and_dead_features(self):
+        """
+        Returns a tuple (core, dead) of features that are selected in every
+        valid configuration (core) or in none (dead).
+        """
+        solver = z3.Solver()
+        solver.add(self.binary_clauses)
+        core, dead = [], []
+        for feature in self.binary_options:
+            v = self._vars[feature]
+            if solver.check(z3.Not(v)) == z3.unsat:
+                core.append(feature)
+            elif solver.check(v) == z3.unsat:
+                dead.append(feature)
+        return core, dead
 
-                if sign:
-                    ors1.append(z3.Bool(f"{feature_name}-1"))
-                    ors2.append(z3.Bool(f"{feature_name}-2"))
+    # ------------------------------------------------------------------ #
+    # modification
+    # ------------------------------------------------------------------ #
 
-                else:
-                    ors1.append(z3.Not(z3.Bool(f"{feature_name}-1")))
-                    ors2.append(z3.Not(z3.Bool(f"{feature_name}-2")))
+    def shuffle(self, seed: Optional[int] = None) -> None:
+        """Shuffles the order of clauses and of literals within each clause."""
+        rng = np.random.default_rng(seed)
+        clauses = [
+            [clause[i] for i in rng.permutation(len(clause))] for clause in self.dimacs
+        ]
+        self.dimacs = [clauses[i] for i in rng.permutation(len(clauses))]
+        self.binary_clauses = self._generate_z3_clauses(self.dimacs)
 
-            if len(ors1) > 0 and len(ors2) > 0:
-                z3_clauses.append(z3.Or(ors1))
-                z3_clauses.append(z3.Or(ors2))
-            else:
-                z3_clauses.append(ors1[0])
-                z3_clauses.append(ors2[0])
-
-        return z3_clauses
-
-    def select(self, options) -> None:
-        indexes = []
+    def _add_unit_clauses(self, options: Sequence[str], positive: bool) -> None:
+        if isinstance(options, str):
+            options = [options]
+        sign = 1 if positive else -1
         for opt in options:
-            indexes.append(self.bin_feature_to_index[opt])
+            self.dimacs.append([sign * self.bin_feature_to_index[opt]])
+        self.binary_clauses = self._generate_z3_clauses(self.dimacs)
 
-            self.dimacs.append([indexes])
+    def select(self, options: Sequence[str]) -> None:
+        """Forces the given options to be selected in every configuration."""
+        self._add_unit_clauses(options, positive=True)
 
-        z3_clauses = self._generate_z3_clauses(self.dimacs)
-
-        self.binary_clauses = z3_clauses
-
-    def deselect(self, options) -> None:
-        indexes = []
-        for opt in options:
-            indexes.append(self.bin_feature_to_index[opt])
-
-            self.dimacs.append([-1 * indexes])
-
-        z3_clauses = self._generate_z3_clauses(self.dimacs)
-
-        self.binary_clauses = z3_clauses
+    def deselect(self, options: Sequence[str]) -> None:
+        """Forces the given options to be deselected in every configuration."""
+        self._add_unit_clauses(options, positive=False)
 
 
 if __name__ == "__main__":

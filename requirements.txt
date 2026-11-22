@@ -1,11 +1,3 @@
-z3-solver
-pandas
-numpy
-networkx
-pyeda
-xmltodict
-statsmodels
-pytest
-xmlschema
-scikit-learn
-matplotlib
+# Runtime dependencies are declared in pyproject.toml; this file installs the
+# package in editable mode together with the test dependencies.
+-e .[test]
