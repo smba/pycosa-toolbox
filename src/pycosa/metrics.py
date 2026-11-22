@@ -19,6 +19,23 @@ Literal = Tuple[str, bool]
 
 
 class CoverageResult(NamedTuple):
+    """
+    Result of a coverage measurement.
+
+    Fields
+    ------
+    t : int
+        Interaction strength that was measured.
+    covered : int
+        Number of valid interactions covered by the sample.
+    valid : int
+        Number of valid interactions in total.
+    ratio : float
+        ``covered / valid``; NaN if there are no valid interactions.
+    missing : list of tuples, optional
+        Valid but uncovered interactions (only with ``return_missing``).
+    """
+
     t: int
     covered: int
     valid: int
@@ -27,6 +44,7 @@ class CoverageResult(NamedTuple):
 
 
 def _align(vm: modeling.VariabilityModel, sample: pd.DataFrame) -> pd.DataFrame:
+    """Reindexes the sample onto the model's options, in model order."""
     features = vm.get_binary_features()
     missing = [f for f in features if f not in sample.columns]
     if missing:
@@ -111,6 +129,7 @@ def option_frequency_error(
 
 
 def _polarities(polarity: str, t: int):
+    """Returns the value patterns to consider for a given polarity."""
     if polarity == "both":
         return list(itertools.product([True, False], repeat=t))
     if polarity == "positive":
@@ -155,6 +174,8 @@ def t_wise_coverage(
 
     # one bitmask over rows per literal: bit r is set iff row r contains it
     def masks(X: np.ndarray):
+        """Bitmask over rows per literal: bit r is set iff row r contains
+        the literal."""
         pos, neg = [], []
         for j in range(X.shape[1]):
             col = X[:, j]
@@ -178,6 +199,8 @@ def t_wise_coverage(
     solver.add(vm.get_binary_clauses())
 
     def add_witness(model):
+        """Registers one valid configuration; every interaction it contains
+        is known to be valid without further solver calls."""
         nonlocal n_witnesses
         bit = 1 << n_witnesses
         n_witnesses += 1

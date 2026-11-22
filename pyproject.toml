@@ -28,6 +28,8 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
+doc = ["sphinx>=7", "furo>=2024"]
+build = ["build>=1", "twine>=5"]
 
 [project.urls]
 Homepage = "https://github.com/smba/pycosa-toolbox"

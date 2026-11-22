@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Parsers that translate variability models from various formats into
+DIMACS-style clauses with named options (see
+:class:`pycosa.modeling.VariabilityModel`).
+"""
 
 import itertools
 import logging
@@ -11,27 +16,41 @@ import xmlschema
 
 
 class Parser:
+    """
+    Base class for feature-model parsers.
+
+    A parser translates a variability model into DIMACS-style clauses and
+    establishes a bidirectional mapping between variable indexes and
+    option names. The result is consumed by
+    :meth:`pycosa.modeling.VariabilityModel.from_dimacs`.
+    """
+
     def __init__(self):
+        """Creates an empty parser; call :meth:`parse` to fill it."""
         self._index_to_feature: Dict[int, str] = dict()
         self._feature_to_index: Dict[str, int] = dict()
         self._clauses: List[List[int]] = []
 
     def _check_parsed(self):
+        """Raises if :meth:`parse` has not been called successfully yet."""
         if len(self._index_to_feature) == 0 and len(self._clauses) == 0:
             msg = "No feature model parsed yet! Use {}.parse() first."
             raise RuntimeError(msg.format(self.__class__.__name__))
 
     def _register(self, index: int, feature_name: str) -> None:
+        """Adds a variable index/option name pair to both mappings."""
         self._index_to_feature[index] = feature_name
         self._feature_to_index[feature_name] = index
 
     def get_feature(self, index: int) -> str:
+        """Returns the name of the option with the given variable index."""
         self._check_parsed()
         if index in self._index_to_feature:
             return self._index_to_feature[index]
         raise ValueError("No feature with index '{}' found!".format(index))
 
     def get_index(self, feature_name: str) -> int:
+        """Returns the variable index of the given option."""
         self._check_parsed()
         if feature_name in self._feature_to_index:
             return self._feature_to_index[feature_name]
@@ -39,18 +58,23 @@ class Parser:
         raise ValueError(msg)
 
     def get_clauses(self) -> List[List[int]]:
+        """Returns the parsed clauses in DIMACS style."""
         return self._clauses
 
     def get_features(self) -> List[str]:
+        """Returns the names of all parsed options."""
         return list(self._feature_to_index.keys())
 
     def get_features2index(self) -> Dict[str, int]:
+        """Returns the mapping from option names to variable indexes."""
         return self._feature_to_index
 
     def get_index2features(self) -> Dict[int, str]:
+        """Returns the mapping from variable indexes to option names."""
         return self._index_to_feature
 
     def parse(self, path: str) -> None:
+        """Parses the file at ``path``; implemented by subclasses."""
         raise NotImplementedError()
 
 
@@ -66,15 +90,24 @@ class DimacsParser(Parser):
     _FEATURE_COMMENT = re.compile(r"^c\s+(\d+)\$?\s+(\S.*?)\s*$")
 
     def __init__(self):
+        """Creates an empty parser; call :meth:`parse` to fill it."""
         super().__init__()
         self.n_variables = None
         self.n_clauses = None
 
     def parse(self, path: str) -> None:
+        """Parses the DIMACS file at ``path`` (replacing previous results)."""
         with open(path, "r") as file:
             self.parse_string(file.read())
 
     def parse_string(self, text: str) -> None:
+        """Parses DIMACS CNF text (replacing previous results).
+
+        Clauses may span multiple lines, and a line may contain several
+        clauses, each terminated by the literal 0. A clause that is not
+        terminated by 0 is accepted if it ends at the end of the input.
+        Variables without a name in the comments are named ``_x<index>``.
+        """
         self._index_to_feature, self._feature_to_index = dict(), dict()
         self._clauses = []
 
@@ -137,6 +170,7 @@ class SPLCParser(Parser):
     """
 
     def __init__(self):
+        """Creates an empty parser; call :meth:`parse` to fill it."""
         super().__init__()
         here = pathlib.Path(__file__).parent.resolve()
         self.schema = xmlschema.XMLSchema(str(here / "resources" / "splc.xsd"))
@@ -144,6 +178,8 @@ class SPLCParser(Parser):
 
     @staticmethod
     def _as_list(value) -> list:
+        """Normalizes XML children that may occur once or several times
+        into a list."""
         if value is None:
             return []
         if isinstance(value, list):
@@ -152,11 +188,18 @@ class SPLCParser(Parser):
 
     @classmethod
     def _option_list(cls, node) -> List[str]:
+        """Extracts the whitespace-trimmed option names from an XML node."""
         if not isinstance(node, dict):
             return []
         return [o.strip() for o in cls._as_list(node.get("option")) if o and o.strip()]
 
     def _parse_constraint(self, constraint: str) -> List[List[int]]:
+        """Translates one boolean constraint of the XML into clauses.
+
+        The constraint must be a conjunction (``&``) of clauses written with
+        ``|`` (or), ``!``/``-`` (not), and ``=>`` (implication). Unknown
+        option names raise a ValueError.
+        """
         clauses = []
         for conjunct in constraint.split("&"):
             conjunct = conjunct.strip().strip("()").strip()
@@ -185,6 +228,12 @@ class SPLCParser(Parser):
         return clauses
 
     def parse(self, path: str) -> None:
+        """Parses the SPL Conqueror XML file at ``path``.
+
+        Refines parent/child relations, implied and excluded options, and
+        boolean constraints into clauses; numeric options are recorded in
+        ``self.numeric_options``.
+        """
         xml = self.schema.to_dict(path)
 
         self._index_to_feature, self._feature_to_index = dict(), dict()

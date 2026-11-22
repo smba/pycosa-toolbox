@@ -1,3 +1,29 @@
+"""
+Sampling strategies for configurations of a variability model.
+
+All model-based samplers share the same interface: they take a
+:class:`pycosa.modeling.VariabilityModel` (plus an optional seed for
+reproducibility), and :meth:`sample <_Sampler.sample>` returns a
+``pandas.DataFrame`` with one boolean column per option and one row per
+configuration.
+
+Available strategies:
+
+- :class:`DFSSampler` enumerates distinct valid configurations, spread out
+  via randomized solver phases.
+- :class:`DistanceBasedSampler` samples distances (number of selected
+  options) uniformly and finds a valid configuration for each distance.
+- :class:`UniformSampler` draws every valid configuration with exactly the
+  same probability (via exact model counting).
+- :class:`CoverageBasedSampler` greedily covers all t-wise interactions.
+- :class:`GroupSampler` draws pairs of configurations that differ exactly
+  in a given group of options (for elementary-effect measurements).
+- :class:`OfflineSampler` finds pairs in third-party data sets.
+
+Metrics for comparing the resulting samples are provided by
+:mod:`pycosa.metrics`.
+"""
+
 import itertools
 import logging
 import random
@@ -26,7 +52,19 @@ def _new_solver(seed: Optional[int] = None, random_phase: bool = True) -> z3.Sol
 
 
 class _Sampler:
+    """
+    Base class of the model-based samplers.
+
+    Holds the model, its z3 variables, and helpers shared by all sampling
+    strategies: solver construction, translating solver models into
+    configurations, blocking clauses, and building the result data frame.
+    Subclasses must implement :meth:`sample`.
+    """
+
     def __init__(self, vm: modeling.VariabilityModel, seed: Optional[int] = None):
+        """Snapshots the model's clauses and prepares reproducible randomness
+        (``seed``) for subsequent sampling runs."""
+        self.vm = vm
         self.vm = vm
         self.clauses = vm.get_binary_clauses()
         self.bin_features = vm.get_binary_features()
@@ -35,15 +73,20 @@ class _Sampler:
         self.rng = np.random.default_rng(seed)
 
     def sample(self, size: int = 10) -> pd.DataFrame:
+        """Draws ``size`` configurations and returns them as a data frame with
+        one boolean column per option; implemented by subclasses."""
         raise NotImplementedError()
 
     def _solver(self, random_phase: bool = True) -> z3.Solver:
+        """Returns a solver pre-loaded with the model's clauses."""
         seed = int(self.rng.integers(0, 2**31 - 1))
         solver = _new_solver(seed=seed, random_phase=random_phase)
         solver.add(self.clauses)
         return solver
 
     def _model_to_config(self, model: z3.ModelRef, variables=None) -> List[bool]:
+        """Transforms a z3 model into a list of booleans, in the order of the
+        given (or the model's) variables; unassigned variables are completed."""
         variables = self.vars if variables is None else variables
         return [z3.is_true(model.eval(v, model_completion=True)) for v in variables]
 
@@ -53,12 +96,16 @@ class _Sampler:
         return z3.Or([z3.Not(v) if val else v for v, val in zip(variables, config)])
 
     def _create_uniqueness_constraint(self, model: z3.ModelRef) -> z3.BoolRef:
+        """Returns the blocking clause excluding exactly the configuration
+        described by the given z3 model."""
         return self._blocking_clause(self.vars, self._model_to_config(model))
 
     def _to_frame(self, configs: Sequence[Sequence[bool]]) -> pd.DataFrame:
+        """Builds the result data frame with one boolean column per option."""
         return pd.DataFrame(list(configs), columns=self.bin_features, dtype=bool)
 
     def _warn_short(self, got: int, wanted: int) -> None:
+        """Logs a warning if fewer configurations were found than requested."""
         if got < wanted:
             logging.warning(
                 "%s: only %d of %d requested configurations could be found.",
@@ -77,10 +124,12 @@ class DFSSampler(_Sampler):
     """
 
     def __init__(self, vm, seed: Optional[int] = None, random_phase: bool = True):
+        """Parameters are as described in the class docstring."""
         super().__init__(vm, seed)
         self.random_phase = random_phase
 
     def sample(self, size: int = 10) -> pd.DataFrame:
+        """Parameters are as described in the class docstring."""
         solver = self._solver(random_phase=self.random_phase)
 
         solutions = []
@@ -108,11 +157,14 @@ class CoverageBasedSampler(_Sampler):
     """
 
     def __init__(self, vm, seed: Optional[int] = None):
+        """Parameters are as described in the class docstring."""
         super().__init__(vm, seed)
 
     def _combinations(
         self, t: int, polarity: str
     ) -> List[Tuple[Tuple[int, bool], ...]]:
+        """Returns all index/value patterns to cover, as tuples of
+        (variable index, value) pairs."""
         if polarity == "positive":
             patterns = [(True,) * t]
         elif polarity == "negative":
@@ -225,9 +277,11 @@ class DistanceBasedSampler(_Sampler):
     """
 
     def __init__(self, vm: modeling.VariabilityModel, seed: Optional[int] = None):
+        """Parameters are as described in the class docstring."""
         super().__init__(vm, seed)
 
     def sample(self, size: int = 10) -> pd.DataFrame:
+        """Parameters are as described in the class docstring."""
         n_options = len(self.vars)
         weighted = [(v, 1) for v in self.vars]
 
@@ -269,12 +323,16 @@ class UniformSampler(_Sampler):
     """
 
     def __init__(self, vm: modeling.VariabilityModel, seed: Optional[int] = None):
+        """Computes the exact model counter upfront, which may take a
+        moment on large models. The parameters are as described in the
+        class docstring."""
         super().__init__(vm, seed)
         self.counter = vm.model_counter()
         self._py_rng = random.Random(seed)
         self._feature_indexes = [vm.bin_feature_to_index[f] for f in self.bin_features]
 
     def _draw(self) -> List[bool]:
+        """Draws one uniformly distributed configuration (in option order)."""
         assignment = self.counter.sample(self._py_rng)
         return [assignment[i] for i in self._feature_indexes]
 
@@ -330,6 +388,7 @@ class GroupSampler:
     """
 
     def __init__(self, vm: modeling.VariabilityModel, seed: Optional[int] = None):
+        """Parameters are as described in the class docstring."""
         self.vm = vm
         self.bin_features = vm.get_binary_features()
         self.clauses = self.vm.get_z3_pair_clauses()
@@ -340,6 +399,9 @@ class GroupSampler:
     def sample(
         self, options: Sequence[str], size: int
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Draws at most ``size`` pairs; returns two data frames with one
+        boolean column per option (options enabled vs. disabled in the group).
+        """
         options = set(options)
         unknown = options - set(self.bin_features)
         if unknown:
@@ -398,6 +460,8 @@ class OfflineSampler:
     """
 
     def __init__(self, df: pd.DataFrame, shuffle=False, seed: Optional[int] = None):
+        """Wraps the given data frame; with ``shuffle``, rows are put into a
+        random order (reproducible via ``seed``)."""
         if shuffle:
             df = df.sample(frac=1, random_state=seed)
 

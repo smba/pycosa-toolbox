@@ -1,3 +1,13 @@
+"""
+Propositional variability models of binary configuration options.
+
+A :class:`VariabilityModel` represents the configuration space of a system
+as a propositional formula (CNF). It is the central object of the toolbox:
+parsers (:mod:`pycosa.parsing`) fill it, samplers (:mod:`pycosa.sampling`)
+draw configurations from it, and metrics (:mod:`pycosa.metrics`) assess
+the resulting samples against it.
+"""
+
 from typing import Dict, List, Mapping, Optional, Sequence
 
 import numpy as np
@@ -10,9 +20,18 @@ class VariabilityModel:
 
     The model is kept in two representations: a list of DIMACS-style clauses
     (lists of signed integers) and the equivalent list of z3 constraints.
+
+    A model is created either from a DIMACS file with
+    :meth:`from_dimacs_file` or by calling :meth:`from_dimacs` with parsed
+    clauses and a mapping from variable indexes to option names. The model
+    can then be analyzed (:meth:`is_valid`, :meth:`core_and_dead_features`,
+    :meth:`count_configurations`, :meth:`option_frequencies`) and restricted
+    (:meth:`select`/:meth:`deselect`) or reshuffled (:meth:`shuffle`), and
+    passed to the samplers in :mod:`pycosa.sampling`.
     """
 
     def __init__(self):
+        """Creates an empty model; fill it via ``from_dimacs``."""
         self.binary_options: List[str] = []
 
         self.dimacs: Optional[List[List[int]]] = None
@@ -40,6 +59,17 @@ class VariabilityModel:
     def from_dimacs(
         self, dimacs: Sequence[Sequence[int]], index2features: Mapping[int, str]
     ) -> None:
+        """Initializes the model from DIMACS-style clauses.
+
+        Parameters
+        ----------
+        dimacs : sequence of sequences of int
+            Clauses as lists of signed (positive/negative) variable indexes.
+        index2features : mapping from int to str
+            Names of the options, by variable index. Variables referenced
+            by the clauses but missing from the mapping are named
+            ``_x<index>``.
+        """
         index2features = dict(index2features)
 
         # make sure that every variable referenced by a clause has a name
@@ -71,6 +101,8 @@ class VariabilityModel:
         return [self._vars[f] for f in self.binary_options]
 
     def _literal(self, literal: int, suffix: str = "") -> z3.BoolRef:
+        """Returns the z3 literal of a DIMACS literal, optionally renaming
+        the underlying variable by appending ``suffix``."""
         name = self.bin_index_to_feature[abs(literal)]
         var = self._vars[name] if suffix == "" else z3.Bool(name + suffix)
         return var if literal > 0 else z3.Not(var)
@@ -78,6 +110,8 @@ class VariabilityModel:
     def _generate_z3_clauses(
         self, clauses: Sequence[Sequence[int]], suffix: str = ""
     ) -> List[z3.BoolRef]:
+        """Translates DIMACS clauses into z3 constraints (a disjunction per
+        clause); the empty clause becomes the constraint False."""
         z3_clauses = []
         for clause in clauses:
             ors = [self._literal(literal, suffix) for literal in clause]
@@ -92,9 +126,11 @@ class VariabilityModel:
         return z3_clauses
 
     def get_binary_clauses(self) -> List[z3.BoolRef]:
+        """Returns the z3 constraints of the model."""
         return self.binary_clauses
 
     def get_binary_features(self) -> List[str]:
+        """Returns the names of all binary options, in variable-index order."""
         return list(self.binary_options)
 
     def get_z3_pair_clauses(self) -> List[z3.BoolRef]:
@@ -124,6 +160,7 @@ class VariabilityModel:
         return solver.check(*assumptions) == z3.sat
 
     def is_satisfiable(self) -> bool:
+        """Returns whether the model has at least one valid configuration."""
         return self.is_valid({})
 
     def core_and_dead_features(self):
@@ -182,6 +219,8 @@ class VariabilityModel:
         self.binary_clauses = self._generate_z3_clauses(self.dimacs)
 
     def _add_unit_clauses(self, options: Sequence[str], positive: bool) -> None:
+        """Appends one unit clause per option, fixing each option to True
+        (``positive``) or False, and rebuilds the z3 constraints."""
         if isinstance(options, str):
             options = [options]
         sign = 1 if positive else -1

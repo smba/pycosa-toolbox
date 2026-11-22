@@ -1,0 +1,23 @@
+# Checks that the Python code is formatted with Black. Formatting is NOT
+# fixed automatically in CI (no CI commit): run `black .` locally instead.
+
+name: format
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  black:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Black
+        run: pip install black
+      - name: Run black --check .
+        run: black --check .
