@@ -1,5 +1,6 @@
 import itertools
 import logging
+import random
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -94,31 +95,38 @@ class DFSSampler(_Sampler):
 
 class CoverageBasedSampler(_Sampler):
     """
-    Greedy t-wise coverage sampling. Every valid combination of ``t`` selected
-    options (or deselected options, if ``negative_wise``) appears in at least
-    one configuration of the sample. Each new configuration covers a
-    previously uncovered combination and is greedily extended with further
-    uncovered combinations, which keeps the sample small.
+    Greedy t-wise coverage sampling. Every valid interaction of ``t`` options
+    appears in at least one configuration of the sample. Each new
+    configuration covers a previously uncovered interaction and is greedily
+    extended with further uncovered interactions, which keeps the sample
+    small.
+
+    Which interactions are covered depends on ``polarity``: combinations of
+    selected options (``"positive"``, the default), of deselected options
+    (``"negative"``), or all value combinations (``"both"``, the usual
+    definition of t-wise coverage in combinatorial interaction testing).
     """
 
     def __init__(self, vm, seed: Optional[int] = None):
         super().__init__(vm, seed)
 
     def _combinations(
-        self, t: int, negative_wise: bool
+        self, t: int, polarity: str
     ) -> List[Tuple[Tuple[int, bool], ...]]:
-        value = not negative_wise
+        if polarity == "positive":
+            patterns = [(True,) * t]
+        elif polarity == "negative":
+            patterns = [(False,) * t]
+        elif polarity == "both":
+            patterns = list(itertools.product([True, False], repeat=t))
+        else:
+            raise ValueError("polarity must be 'positive', 'negative' or 'both'")
         idx = list(range(len(self.vars)))
         return [
-            tuple((i, value) for i in combo) for combo in itertools.combinations(idx, t)
+            tuple(zip(combo, values))
+            for combo in itertools.combinations(idx, t)
+            for values in patterns
         ]
-
-    def _assumptions(self, combo) -> List[z3.BoolRef]:
-        return [self.vars[i] if val else z3.Not(self.vars[i]) for i, val in combo]
-
-    @staticmethod
-    def _covered_by(config: Sequence[bool], combo) -> bool:
-        return all(config[i] == val for i, val in combo)
 
     def sample(
         self,
@@ -126,6 +134,7 @@ class CoverageBasedSampler(_Sampler):
         negative_wise: bool = False,
         extend: bool = True,
         max_tries: Optional[int] = None,
+        polarity: Optional[str] = None,
     ) -> pd.DataFrame:
         """
         Parameters
@@ -133,7 +142,10 @@ class CoverageBasedSampler(_Sampler):
         t : int
             Interaction strength (1 = feature-wise, 2 = pair-wise, ...).
         negative_wise : bool
-            Cover combinations of deselected instead of selected options.
+            Shorthand for ``polarity="negative"``.
+        polarity : {"positive", "negative", "both"}, optional
+            Which interactions to cover (see class docstring). Defaults to
+            ``"negative"`` if ``negative_wise`` else ``"positive"``.
         extend : bool
             Greedily pack further uncovered combinations into each
             configuration (smaller samples, more solver calls).
@@ -145,41 +157,61 @@ class CoverageBasedSampler(_Sampler):
 
         solver = self._solver(random_phase=False)
 
-        combos = self._combinations(t, negative_wise)
+        if polarity is None:
+            polarity = "negative" if negative_wise else "positive"
+        elif negative_wise and polarity != "negative":
+            raise ValueError(
+                "negative_wise=True contradicts polarity={!r}".format(polarity)
+            )
+
+        combos = self._combinations(t, polarity)
         order = self.rng.permutation(len(combos))
         uncovered = [combos[i] for i in order]
 
+        # cached z3 literals: passing few, pre-built assumptions per check
+        # avoids most of the overhead of z3's Python bindings
+        lits = {}
+        for i, v in enumerate(self.vars):
+            lits[(i, True)] = v
+            lits[(i, False)] = z3.Not(v)
+
         solutions: List[List[bool]] = []
         while uncovered:
-            target = uncovered.pop(0)
-            assumptions = self._assumptions(target)
-            if solver.check(*assumptions) != z3.sat:
+            target = uncovered[0]
+            uncovered = uncovered[1:]
+            if solver.check(*[lits[lit] for lit in target]) != z3.sat:
                 continue  # infeasible interaction
 
             if extend:
-                # greedily try to include further uncovered combinations
+                # greedily try to include further uncovered combinations;
+                # accepted literals are added permanently within a scope
                 config = self._model_to_config(solver.model())
+                solver.push()
+                solver.add(*[lits[lit] for lit in target])
                 fixed = dict(target)
                 tries = 0
                 for combo in uncovered:
                     if max_tries is not None and tries >= max_tries:
                         break
-                    if self._covered_by(config, combo):
+                    if all(config[i] == val for i, val in combo):
                         continue
                     # skip combinations that contradict already fixed literals
                     if any(fixed.get(i, val) != val for i, val in combo):
                         continue
                     tries += 1
-                    candidate = assumptions + self._assumptions(combo)
-                    if solver.check(*candidate) == z3.sat:
-                        assumptions = candidate
-                        fixed.update(combo)
+                    new = [lits[lit] for lit in combo if lit[0] not in fixed]
+                    if solver.check(*new) == z3.sat:
                         config = self._model_to_config(solver.model())
+                        solver.add(*new)
+                        fixed.update(combo)
+                solver.pop()
             else:
                 config = self._model_to_config(solver.model())
 
             solutions.append(config)
-            uncovered = [c for c in uncovered if not self._covered_by(config, c)]
+            uncovered = [
+                c for c in uncovered if not all(config[i] == val for i, val in c)
+            ]
 
         return self._to_frame(solutions)
 
@@ -220,6 +252,71 @@ class DistanceBasedSampler(_Sampler):
             else:
                 available.remove(d)
                 del solvers[d]
+
+        self._warn_short(len(solutions), size)
+        return self._to_frame(solutions)
+
+
+class UniformSampler(_Sampler):
+    """
+    Uniform random sampling: every valid configuration is drawn with exactly
+    the same probability. Uses exact model counting (``pycosa.counting``), so
+    no solver randomness or rejection is involved.
+
+    Uniform samples are the usual baseline for comparing sampling strategies
+    and are unbiased w.r.t. the configuration space (unlike solver-based
+    enumeration, which tends to over-represent some regions).
+    """
+
+    def __init__(self, vm: modeling.VariabilityModel, seed: Optional[int] = None):
+        super().__init__(vm, seed)
+        self.counter = vm.model_counter()
+        self._py_rng = random.Random(seed)
+        self._feature_indexes = [vm.bin_feature_to_index[f] for f in self.bin_features]
+
+    def _draw(self) -> List[bool]:
+        assignment = self.counter.sample(self._py_rng)
+        return [assignment[i] for i in self._feature_indexes]
+
+    def sample(
+        self, size: int = 10, unique: bool = True, max_attempts: Optional[int] = None
+    ) -> pd.DataFrame:
+        """
+        Parameters
+        ----------
+        size : int
+            Number of configurations.
+        unique : bool
+            Sample without replacement (default). Duplicates are rejected and
+            redrawn, which keeps each set of distinct configurations equally
+            likely. With ``unique=False``, configurations are i.i.d. draws.
+        max_attempts : int, optional
+            Upper bound on draws when sampling without replacement
+            (default: ``20 * size + 100``).
+        """
+        total = self.counter.count()
+        if total == 0:
+            raise ValueError("The variability model is unsatisfiable.")
+
+        if not unique:
+            return self._to_frame([self._draw() for _ in range(size)])
+
+        target = min(size, total)
+        if target < size:
+            logging.warning(
+                "UniformSampler: the model has only %d valid configurations.", total
+            )
+        max_attempts = 20 * size + 100 if max_attempts is None else max_attempts
+
+        seen, solutions = set(), []
+        attempts = 0
+        while len(solutions) < target and attempts < max_attempts:
+            attempts += 1
+            config = self._draw()
+            key = tuple(config)
+            if key not in seen:
+                seen.add(key)
+                solutions.append(config)
 
         self._warn_short(len(solutions), size)
         return self._to_frame(solutions)

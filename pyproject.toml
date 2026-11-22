@@ -40,3 +40,6 @@ pycosa = ["resources/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.black]
+target-version = ["py39"]

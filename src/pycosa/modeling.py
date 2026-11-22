@@ -142,6 +142,32 @@ class VariabilityModel:
                 dead.append(feature)
         return core, dead
 
+    def model_counter(self):
+        """
+        Returns an exact model counter (see ``pycosa.counting``) for this
+        model. The counter caches intermediate results, and is invalidated by
+        later calls to ``select``/``deselect``.
+        """
+        from pycosa.counting import ModelCounter
+
+        key = tuple(tuple(c) for c in self.dimacs)
+        if getattr(self, "_counter_key", None) != key:
+            self._counter = ModelCounter(self.dimacs, self.bin_index_to_feature.keys())
+            self._counter_key = key
+        return self._counter
+
+    def count_configurations(self) -> int:
+        """Exact number of valid configurations."""
+        return self.model_counter().count()
+
+    def option_frequencies(self) -> Dict[str, float]:
+        """
+        Fraction of all valid configurations in which each option is
+        selected (the frequencies a uniform random sample converges to).
+        """
+        marginals = self.model_counter().marginals()
+        return {self.bin_index_to_feature[i]: p for i, p in marginals.items()}
+
     # ------------------------------------------------------------------ #
     # modification
     # ------------------------------------------------------------------ #
