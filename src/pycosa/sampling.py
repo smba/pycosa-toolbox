@@ -1,258 +1,392 @@
-from typing import Sequence
+import itertools
+import logging
+import random
+from typing import Dict, List, Optional, Sequence, Tuple
 
+import numpy as np
 import pandas as pd
 import z3
 
 import pycosa.modeling as modeling
-import itertools
-import numpy as np
+
+
+def _new_solver(seed: Optional[int] = None, random_phase: bool = True) -> z3.Solver:
+    """
+    Creates a solver for finite-domain (propositional + pseudo-Boolean)
+    problems. With ``random_phase``, the SAT core picks random polarities for
+    decisions, which yields far more diverse solutions than the default
+    (which always prefers 'False' and thus clusters around minimal configs).
+    """
+    solver = z3.SolverFor("QF_FD")
+    if seed is not None:
+        solver.set("random_seed", int(seed) % (2**31))
+    if random_phase:
+        solver.set("sat.phase", "random")
+    return solver
 
 
 class _Sampler:
-    def __init__(self, vm: modeling.VariabilityModel):
+    def __init__(self, vm: modeling.VariabilityModel, seed: Optional[int] = None):
+        self.vm = vm
         self.clauses = vm.get_binary_clauses()
         self.bin_features = vm.get_binary_features()
+        self.vars = vm.get_vars()
+        self.seed = seed
+        self.rng = np.random.default_rng(seed)
 
     def sample(self, size: int = 10) -> pd.DataFrame:
-        pass
+        raise NotImplementedError()
 
-    def _create_uniqueness_constraint(self, model: z3.ModelRef) -> z3.Or:
-        literals = [z3.Bool(literal) for literal in self.bin_features]
-        exclusion_constraint = z3.Or(
-            [p != model.evaluate(p, model_completion=True) for p in literals]
-        )
-        return exclusion_constraint
+    def _solver(self, random_phase: bool = True) -> z3.Solver:
+        seed = int(self.rng.integers(0, 2**31 - 1))
+        solver = _new_solver(seed=seed, random_phase=random_phase)
+        solver.add(self.clauses)
+        return solver
+
+    def _model_to_config(self, model: z3.ModelRef, variables=None) -> List[bool]:
+        variables = self.vars if variables is None else variables
+        return [z3.is_true(model.eval(v, model_completion=True)) for v in variables]
+
+    @staticmethod
+    def _blocking_clause(variables, config: Sequence[bool]) -> z3.BoolRef:
+        """Clause that excludes exactly the given assignment of variables."""
+        return z3.Or([z3.Not(v) if val else v for v, val in zip(variables, config)])
+
+    def _create_uniqueness_constraint(self, model: z3.ModelRef) -> z3.BoolRef:
+        return self._blocking_clause(self.vars, self._model_to_config(model))
+
+    def _to_frame(self, configs: Sequence[Sequence[bool]]) -> pd.DataFrame:
+        return pd.DataFrame(list(configs), columns=self.bin_features, dtype=bool)
+
+    def _warn_short(self, got: int, wanted: int) -> None:
+        if got < wanted:
+            logging.warning(
+                "%s: only %d of %d requested configurations could be found.",
+                self.__class__.__name__,
+                got,
+                wanted,
+            )
 
 
 class DFSSampler(_Sampler):
-    def __init__(self, vm):
-        super().__init__(vm)
+    """
+    Enumerates distinct valid configurations by repeatedly asking the solver
+    for a new solution. By default the solver uses random decision phases, so
+    the sample is spread across the configuration space. Pass
+    ``random_phase=False`` to obtain the classic (clustered) enumeration.
+    """
+
+    def __init__(self, vm, seed: Optional[int] = None, random_phase: bool = True):
+        super().__init__(vm, seed)
+        self.random_phase = random_phase
 
     def sample(self, size: int = 10) -> pd.DataFrame:
-        solver = z3.Solver()
-        solver.add(self.clauses)
+        solver = self._solver(random_phase=self.random_phase)
 
         solutions = []
-        for i in range(size):
-            if solver.check() == z3.sat:
-                model = solver.model()
+        while len(solutions) < size and solver.check() == z3.sat:
+            config = self._model_to_config(solver.model())
+            solutions.append(config)
+            solver.add(self._blocking_clause(self.vars, config))
 
-                # construct solution
-                solution = {}
-                for literal in self.bin_features:
-                    val = model[z3.Bool(literal)]
-                    if val is not None:
-                        solution[literal] = val.__bool__()
-                    else:
-                        solution[literal] = False
-
-                solutions.append(solution)
-
-                # add uniqueness constraint
-                uniqueness_constraint = self._create_uniqueness_constraint(model)
-                solver.add(uniqueness_constraint)
-
-        df = pd.DataFrame(solutions)
-        return df
+        self._warn_short(len(solutions), size)
+        return self._to_frame(solutions)
 
 
 class CoverageBasedSampler(_Sampler):
-    def __init__(self, vm):
-        super().__init__(vm)
+    """
+    Greedy t-wise coverage sampling. Every valid interaction of ``t`` options
+    appears in at least one configuration of the sample. Each new
+    configuration covers a previously uncovered interaction and is greedily
+    extended with further uncovered interactions, which keeps the sample
+    small.
 
-    def sample(self, t=1, negative_wise=False) -> pd.DataFrame:
-        solver = z3.Solver()
-        solver.add(self.clauses)
+    Which interactions are covered depends on ``polarity``: combinations of
+    selected options (``"positive"``, the default), of deselected options
+    (``"negative"``), or all value combinations (``"both"``, the usual
+    definition of t-wise coverage in combinatorial interaction testing).
+    """
 
-        solutions = []
-        assert t > 0
-        for term in itertools.combinations(self.bin_features, t):
-            solver.push()
+    def __init__(self, vm, seed: Optional[int] = None):
+        super().__init__(vm, seed)
 
-            # construct constraints
-            for option in term:
-                if not negative_wise:
-                    solver.add(z3.Bool(option))
-                else:
-                    solver.add(z3.Not(z3.Bool(option)))
+    def _combinations(
+        self, t: int, polarity: str
+    ) -> List[Tuple[Tuple[int, bool], ...]]:
+        if polarity == "positive":
+            patterns = [(True,) * t]
+        elif polarity == "negative":
+            patterns = [(False,) * t]
+        elif polarity == "both":
+            patterns = list(itertools.product([True, False], repeat=t))
+        else:
+            raise ValueError("polarity must be 'positive', 'negative' or 'both'")
+        idx = list(range(len(self.vars)))
+        return [
+            tuple(zip(combo, values))
+            for combo in itertools.combinations(idx, t)
+            for values in patterns
+        ]
 
-            if solver.check() == z3.sat:
-                model = solver.model()
+    def sample(
+        self,
+        t: int = 1,
+        negative_wise: bool = False,
+        extend: bool = True,
+        max_tries: Optional[int] = None,
+        polarity: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """
+        Parameters
+        ----------
+        t : int
+            Interaction strength (1 = feature-wise, 2 = pair-wise, ...).
+        negative_wise : bool
+            Shorthand for ``polarity="negative"``.
+        polarity : {"positive", "negative", "both"}, optional
+            Which interactions to cover (see class docstring). Defaults to
+            ``"negative"`` if ``negative_wise`` else ``"positive"``.
+        extend : bool
+            Greedily pack further uncovered combinations into each
+            configuration (smaller samples, more solver calls).
+        max_tries : int, optional
+            Upper bound on solver calls per configuration during extension.
+        """
+        if t < 1:
+            raise ValueError("t must be a positive integer, got {}".format(t))
 
-                # keep record of solution
-                solution = {}
-                for literal in self.bin_features:
-                    val = model[z3.Bool(literal)]
-                    if val is not None:
-                        solution[literal] = val.__bool__()
-                    else:
-                        solution[literal] = False
-                solutions.append(solution)
+        solver = self._solver(random_phase=False)
 
-            solver.pop()
+        if polarity is None:
+            polarity = "negative" if negative_wise else "positive"
+        elif negative_wise and polarity != "negative":
+            raise ValueError(
+                "negative_wise=True contradicts polarity={!r}".format(polarity)
+            )
 
-            # add uniqueness constraint
-            uniqueness_constraint = self._create_uniqueness_constraint(model)
-            solver.add(uniqueness_constraint)
+        combos = self._combinations(t, polarity)
+        order = self.rng.permutation(len(combos))
+        uncovered = [combos[i] for i in order]
 
-        df = pd.DataFrame(solutions)
-        return df
+        # cached z3 literals: passing few, pre-built assumptions per check
+        # avoids most of the overhead of z3's Python bindings
+        lits = {}
+        for i, v in enumerate(self.vars):
+            lits[(i, True)] = v
+            lits[(i, False)] = z3.Not(v)
 
-        for i in range(size):
-            if solver.check() == z3.sat:
-                model = solver.model()
+        solutions: List[List[bool]] = []
+        while uncovered:
+            target = uncovered[0]
+            uncovered = uncovered[1:]
+            if solver.check(*[lits[lit] for lit in target]) != z3.sat:
+                continue  # infeasible interaction
 
-                # keep record of solution
-                solution = {}
-                for literal in self.bin_features:
-                    val = model[z3.Bool(literal)]
-                    if val is not None:
-                        solution[literal] = val.__bool__()
-                    else:
-                        solution[literal] = False
+            if extend:
+                # greedily try to include further uncovered combinations;
+                # accepted literals are added permanently within a scope
+                config = self._model_to_config(solver.model())
+                solver.push()
+                solver.add(*[lits[lit] for lit in target])
+                fixed = dict(target)
+                tries = 0
+                for combo in uncovered:
+                    if max_tries is not None and tries >= max_tries:
+                        break
+                    if all(config[i] == val for i, val in combo):
+                        continue
+                    # skip combinations that contradict already fixed literals
+                    if any(fixed.get(i, val) != val for i, val in combo):
+                        continue
+                    tries += 1
+                    new = [lits[lit] for lit in combo if lit[0] not in fixed]
+                    if solver.check(*new) == z3.sat:
+                        config = self._model_to_config(solver.model())
+                        solver.add(*new)
+                        fixed.update(combo)
+                solver.pop()
+            else:
+                config = self._model_to_config(solver.model())
 
-                solutions.append(solution)
+            solutions.append(config)
+            uncovered = [
+                c for c in uncovered if not all(config[i] == val for i, val in c)
+            ]
 
-                # add uniqueness constraint
-                uniqueness_constraint = self._create_uniqueness_constraint(model)
-                solver.add(uniqueness_constraint)
-
-        df = pd.DataFrame(solutions)
-        return df
+        return self._to_frame(solutions)
 
 
 class DistanceBasedSampler(_Sampler):
-    def __init__(self, vm: modeling.VariabilityModel):
-        super().__init__(vm)
+    """
+    Distance-based sampling (Kaltenecker et al., ICSE 2019): for each
+    configuration, a distance ``d`` (number of selected options) is drawn
+    uniformly from the feasible distances, and a valid configuration with
+    exactly ``d`` selected options is searched.
+    """
+
+    def __init__(self, vm: modeling.VariabilityModel, seed: Optional[int] = None):
+        super().__init__(vm, seed)
 
     def sample(self, size: int = 10) -> pd.DataFrame:
-        n_options = len(self.bin_features)
+        n_options = len(self.vars)
+        weighted = [(v, 1) for v in self.vars]
 
-        # Construct some Solver instances
-        solvers = {}
-        for d in range(n_options):
-            solvers[d] = z3.Solver()
-            solvers[d].add(self.clauses)
-            solvers[d].add(
-                z3.Sum([z3.If(z3.Bool(opt), 1, 0) for opt in range(n_options)]) == d
-            )
+        solvers: Dict[int, z3.Solver] = {}
+        available = list(range(n_options + 1))
 
         solutions = []
-        for i in range(size):
-            d = np.random.choice(np.arange(n_options), size=1, replace=True)[0]
-            d = int(d)
+        while len(solutions) < size and available:
+            d = int(self.rng.choice(available))
 
-            if solvers[d].check() == z3.sat:
-                model = solvers[d].model()
+            if d not in solvers:
+                solvers[d] = self._solver()
+                solvers[d].add(z3.PbEq(weighted, d))
+            solver = solvers[d]
 
-                # construct solution
-                solution = {}
-                for j in range(n_options):
-                    option = self.bin_features[j]
-                    val = model[z3.Bool(option)]
-                    if val is not None:
-                        solution[option] = val.__bool__()
-                    else:
-                        solution[option] = False
+            if solver.check() == z3.sat:
+                config = self._model_to_config(solver.model())
+                solutions.append(config)
+                # block this configuration in its distance solver; other
+                # distance solvers cannot produce it anyway
+                solver.add(self._blocking_clause(self.vars, config))
+            else:
+                available.remove(d)
+                del solvers[d]
 
-                solutions.append(solution)
+        self._warn_short(len(solutions), size)
+        return self._to_frame(solutions)
 
-                # add uniqueness constraint
-                uniqueness_constraint = self._create_uniqueness_constraint(model)
-                solvers[d].add(uniqueness_constraint)
 
-        df = pd.DataFrame(solutions)
-        return df
+class UniformSampler(_Sampler):
+    """
+    Uniform random sampling: every valid configuration is drawn with exactly
+    the same probability. Uses exact model counting (``pycosa.counting``), so
+    no solver randomness or rejection is involved.
+
+    Uniform samples are the usual baseline for comparing sampling strategies
+    and are unbiased w.r.t. the configuration space (unlike solver-based
+    enumeration, which tends to over-represent some regions).
+    """
+
+    def __init__(self, vm: modeling.VariabilityModel, seed: Optional[int] = None):
+        super().__init__(vm, seed)
+        self.counter = vm.model_counter()
+        self._py_rng = random.Random(seed)
+        self._feature_indexes = [vm.bin_feature_to_index[f] for f in self.bin_features]
+
+    def _draw(self) -> List[bool]:
+        assignment = self.counter.sample(self._py_rng)
+        return [assignment[i] for i in self._feature_indexes]
+
+    def sample(
+        self, size: int = 10, unique: bool = True, max_attempts: Optional[int] = None
+    ) -> pd.DataFrame:
+        """
+        Parameters
+        ----------
+        size : int
+            Number of configurations.
+        unique : bool
+            Sample without replacement (default). Duplicates are rejected and
+            redrawn, which keeps each set of distinct configurations equally
+            likely. With ``unique=False``, configurations are i.i.d. draws.
+        max_attempts : int, optional
+            Upper bound on draws when sampling without replacement
+            (default: ``20 * size + 100``).
+        """
+        total = self.counter.count()
+        if total == 0:
+            raise ValueError("The variability model is unsatisfiable.")
+
+        if not unique:
+            return self._to_frame([self._draw() for _ in range(size)])
+
+        target = min(size, total)
+        if target < size:
+            logging.warning(
+                "UniformSampler: the model has only %d valid configurations.", total
+            )
+        max_attempts = 20 * size + 100 if max_attempts is None else max_attempts
+
+        seen, solutions = set(), []
+        attempts = 0
+        while len(solutions) < target and attempts < max_attempts:
+            attempts += 1
+            config = self._draw()
+            key = tuple(config)
+            if key not in seen:
+                seen.add(key)
+                solutions.append(config)
+
+        self._warn_short(len(solutions), size)
+        return self._to_frame(solutions)
 
 
 class GroupSampler:
-    def __init__(self, vm: modeling.VariabilityModel):
+    """
+    Samples pairs of configurations that differ exactly in a given group of
+    options: in the first configuration of each pair, all group options are
+    selected, in the second all are deselected; all other options agree.
+    """
+
+    def __init__(self, vm: modeling.VariabilityModel, seed: Optional[int] = None):
         self.vm = vm
         self.bin_features = vm.get_binary_features()
         self.clauses = self.vm.get_z3_pair_clauses()
+        self.rng = np.random.default_rng(seed)
+        self.vars_en = [z3.Bool(f"{o}-1") for o in self.bin_features]
+        self.vars_dis = [z3.Bool(f"{o}-2") for o in self.bin_features]
 
-    def sample(self, options: Sequence[str], size: int):
-        old_solutions = []
+    def sample(
+        self, options: Sequence[str], size: int
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        options = set(options)
+        unknown = options - set(self.bin_features)
+        if unknown:
+            raise ValueError("Unknown options: {}".format(sorted(unknown)))
 
-        enabled = []
-        disabled = []
+        base = _new_solver(seed=int(self.rng.integers(0, 2**31 - 1)))
+        base.add(self.clauses)
+        for option, en, dis in zip(self.bin_features, self.vars_en, self.vars_dis):
+            if option in options:
+                base.add(en, z3.Not(dis))
+            else:
+                base.add(en == dis)
 
+        enabled, disabled = [], []
         n_options = len(self.bin_features)
+        weighted = [(v, 1) for v in self.vars_en]
+        available = list(range(n_options + 1))
 
-        available_distances = set(list(range(n_options)))
+        while len(enabled) < size and available:
+            d = int(self.rng.choice(available))
+            if base.check(z3.PbEq(weighted, d)) != z3.sat:
+                available.remove(d)
+                continue
 
-        while len(enabled) < size and len(available_distances) > 0:
-            solver = z3.Solver()
+            model = base.model()
+            en = [
+                z3.is_true(model.eval(v, model_completion=True)) for v in self.vars_en
+            ]
+            dis = [
+                z3.is_true(model.eval(v, model_completion=True)) for v in self.vars_dis
+            ]
+            enabled.append(en)
+            disabled.append(dis)
 
-            solver.add(old_solutions)
-            solver.add(self.clauses)
+            # the disabled configuration is determined by the enabled one, so
+            # blocking the enabled one suffices for uniqueness of pairs
+            base.add(_Sampler._blocking_clause(self.vars_en, en))
 
-            # add distance constraint
-            d = int(np.random.choice(list(available_distances), size=1)[0])
-            solver.add(
-                z3.Sum(
-                    [
-                        z3.If(z3.Bool(f"{option}-1"), 1, 0)
-                        for option in self.bin_features
-                    ]
-                )
-                == d
+        if len(enabled) < size:
+            logging.warning(
+                "GroupSampler: only %d of %d requested pairs could be found.",
+                len(enabled),
+                size,
             )
 
-            for option in self.bin_features:
-                if option in options:
-                    solver.add(
-                        z3.And(z3.Bool(f"{option}-1"), z3.Not(z3.Bool(f"{option}-2")))
-                    )
-                else:
-                    solver.add(z3.Bool(f"{option}-1") == z3.Bool(f"{option}-2"))
-
-            if solver.check() == z3.sat:
-                model = solver.model()
-
-                # construct solutions
-                en_solution = {}
-                dis_solution = {}
-                for option in self.bin_features:
-                    en_val = model[z3.Bool(f"{option}-1")]
-                    dis_val = model[z3.Bool(f"{option}-2")]
-
-                    if en_val is not None and dis_val is not None:
-                        en_solution[f"{option}"] = en_val.__bool__()
-                        dis_solution[f"{option}"] = dis_val.__bool__()
-                    else:
-                        en_solution[f"{option}"] = False
-                        dis_solution[f"{option}"] = False
-
-                enabled.append(en_solution)
-                disabled.append(dis_solution)
-
-                # add uniqueness constraint
-                en_literals = [z3.Bool(f"{option}-1") for option in self.bin_features]
-                dis_literals = [z3.Bool(f"{option}-2") for option in self.bin_features]
-
-                old_solutions.append(
-                    z3.Or(
-                        [
-                            p != model.evaluate(p, model_completion=True)
-                            for p in en_literals
-                        ]
-                    )
-                )
-                old_solutions.append(
-                    z3.Or(
-                        [
-                            p != model.evaluate(p, model_completion=True)
-                            for p in dis_literals
-                        ]
-                    )
-                )
-
-            else:
-                available_distances = available_distances - {d}
-
-        enabled = pd.DataFrame(enabled)
-        disabled = pd.DataFrame(disabled)
+        enabled = pd.DataFrame(enabled, columns=self.bin_features, dtype=bool)
+        disabled = pd.DataFrame(disabled, columns=self.bin_features, dtype=bool)
 
         return enabled, disabled
 
@@ -263,32 +397,47 @@ class OfflineSampler:
     are third-party data sets.
     """
 
-    def __init__(self, df: pd.DataFrame, shuffle=False):
+    def __init__(self, df: pd.DataFrame, shuffle=False, seed: Optional[int] = None):
         if shuffle:
-            df = df.sample(frac=1)
+            df = df.sample(frac=1, random_state=seed)
 
         self.df = df
 
     def elementary_effect_sample(self, options: Sequence[object], size: int = 100):
-        df = self.df.copy()
+        """
+        Finds pairs of configurations in the data set that differ only in the
+        given options (all selected vs. all deselected).
 
-        df["selected"] = df[options].all(axis=1)
-        df["deselected"] = ~df[options].any(axis=1)
+        Returns two lists of row indexes (enabled, disabled) of equal length.
+        """
+        options = list(options)
+        df = self.df
 
-        drop_cols = options + ["selected", "deselected"]
-        enabled = df[df["selected"]].drop(columns=drop_cols)
-        disabled = df[df["deselected"]].drop(columns=drop_cols)
+        selected = df[options].astype(bool).all(axis=1)
+        deselected = ~df[options].astype(bool).any(axis=1)
+        rest = df.drop(columns=options)
 
-        configs = pd.concat([enabled, disabled])
-        dups = configs[configs.duplicated(keep=False)]
+        # rows indexed by the values of all remaining columns
+        key = pd.MultiIndex.from_frame(rest) if rest.shape[1] > 0 else None
+        if key is None:
+            en_rows = list(df.index[selected])[:1]
+            dis_rows = list(df.index[deselected])[:1]
+            n = min(len(en_rows), len(dis_rows), size)
+            return en_rows[:n], dis_rows[:n]
 
-        en, dis = [], []
-        for rand, pair in dups.groupby(by=list(dups.columns)):
-            pair["selected"] = df.loc[pair.index]["selected"]
-            pair = pair.sort_values(by="selected")
-            if pair.shape[0] == 2 and len(en) < size:
-                en.append(pair.index[0])
-                dis.append(pair.index[1])
+        first_disabled = {}
+        for row, k, is_dis in zip(df.index, key, deselected):
+            if is_dis and k not in first_disabled:
+                first_disabled[k] = row
+
+        en, dis, used = [], [], set()
+        for row, k, is_sel in zip(df.index, key, selected):
+            if len(en) >= size:
+                break
+            if is_sel and k in first_disabled and k not in used:
+                used.add(k)
+                en.append(row)
+                dis.append(first_disabled[k])
 
         return en, dis
 

@@ -8,17 +8,17 @@ from pycosa.lib import OptionExhaustionError
 
 
 class GroupLearner:
-    def __init__(self, options, t1: float = 0.5, t2: float = 0.1):
+    def __init__(self, options, t1: float = 0.5, t2: float = 0.1, seed=None):
         """
-        Decides for a given set of options and measurements, whether the set of options
-        is influential and/or interacting with further features.
+        Keeps track of which options are classified as influential and/or
+        interacting, based on group-wise elementary effect measurements.
 
-        @param group: List of option names
-        @param perf_en: Performance of configurations with options of group enabled
-        @param perf_dis: Performance of configurations with options of group disabled
-
-        @return: None
+        @param options: List of option names
+        @param t1: Relative threshold for a performance difference to count as relevant
+        @param t2: Relative threshold for the spread of performance differences
+        @param seed: Seed for suggesting option groups
         """
+        self.rng = np.random.default_rng(seed)
         self.t1 = t1
         self.t2 = t2
 
@@ -41,6 +41,13 @@ class GroupLearner:
 
         @return: None
         """
+
+        perf_en = np.asarray(perf_en, dtype=float)
+        perf_dis = np.asarray(perf_dis, dtype=float)
+        if perf_en.shape != perf_dis.shape or perf_en.size == 0:
+            raise ValueError(
+                "perf_en and perf_dis must be non-empty and of equal length"
+            )
 
         n_pairs = len(perf_en)
         deltas = np.abs(perf_en - perf_dis)
@@ -128,11 +135,11 @@ class GroupLearner:
         group_size = min(len(self.options), size)
 
         if group_size > 0:
-            options = np.random.choice(
-                list(self.options), size=group_size, replace=False
+            options = self.rng.choice(
+                sorted(self.options), size=group_size, replace=False
             )
         else:
-            msg = f"Not enough options left to suggest a group (previous ones have already been discarded.)"
+            msg = "Not enough options left to suggest a group (previous ones have already been discarded.)"
             raise OptionExhaustionError(msg)
 
         return options
@@ -145,7 +152,8 @@ class GroupLearner:
         -------
         @return: pd.DataFrame with statistics
         """
-        df = pd.DataFrame(self.records, columns=self.records.keys(), index=False)
+        df = pd.DataFrame.from_dict(self.records, orient="index")
+        df.index.name = "option"
 
         return df
 

@@ -1,4 +1,3 @@
-import os
+"""pycosa: configuration sampling toolbox."""
 
-if __name__ == "__main__":
-    THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+__version__ = "0.2.0"

@@ -1,53 +1,53 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from typing import Sequence
+import itertools
+import logging
+import pathlib
+import re
+from typing import Dict, List, Sequence
 
 import xmlschema
-import itertools
-import pathlib
 
 
 class Parser:
     def __init__(self):
-        self._index_to_feature = dict()
-        self._feature_to_index = dict()
-        self._clauses = []
+        self._index_to_feature: Dict[int, str] = dict()
+        self._feature_to_index: Dict[str, int] = dict()
+        self._clauses: List[List[int]] = []
+
+    def _check_parsed(self):
+        if len(self._index_to_feature) == 0 and len(self._clauses) == 0:
+            msg = "No feature model parsed yet! Use {}.parse() first."
+            raise RuntimeError(msg.format(self.__class__.__name__))
+
+    def _register(self, index: int, feature_name: str) -> None:
+        self._index_to_feature[index] = feature_name
+        self._feature_to_index[feature_name] = index
 
     def get_feature(self, index: int) -> str:
-        if self._index_to_feature is None:
-            msg = "No feature model parsed yet! Use {}.parse() first."
-            msg = msg.format(self.__class__)
-            raise RuntimeError(msg)
-
+        self._check_parsed()
         if index in self._index_to_feature:
             return self._index_to_feature[index]
-        else:
-            msg = "No feature with index '{}' found!".format(index)
-            raise ValueError(msg)
+        raise ValueError("No feature with index '{}' found!".format(index))
 
     def get_index(self, feature_name: str) -> int:
-        if self._feature_to_index is None:
-            msg = "No feature model parsed yet! Use {}.parse() first."
-            msg = msg.format(self.__class__)
-            raise RuntimeError(msg)
-
+        self._check_parsed()
         if feature_name in self._feature_to_index:
             return self._feature_to_index[feature_name]
-        else:
-            msg = "No feature index for feature name '{}' found!".format(feature_name)
-            raise ValueError(msg)
+        msg = "No feature index for feature name '{}' found!".format(feature_name)
+        raise ValueError(msg)
 
-    def get_clauses(self) -> Sequence[Sequence[int]]:
+    def get_clauses(self) -> List[List[int]]:
         return self._clauses
 
-    def get_features(self) -> Sequence[str]:
+    def get_features(self) -> List[str]:
         return list(self._feature_to_index.keys())
 
-    def get_features2index(self):
+    def get_features2index(self) -> Dict[str, int]:
         return self._feature_to_index
 
-    def get_index2features(self):
+    def get_index2features(self) -> Dict[int, str]:
         return self._index_to_feature
 
     def parse(self, path: str) -> None:
@@ -55,105 +55,191 @@ class Parser:
 
 
 class DimacsParser(Parser):
-    def __init__(
-        self,
-    ):
+    """
+    Parser for DIMACS CNF files. Feature names are read from comment lines of
+    the form ``c <index> <name>`` (as written by FeatureIDE, KConfigReader,
+    etc.). FeatureIDE marks auxiliary variables with a trailing ``$`` after the
+    index, which is accepted as well. Variables without a name are named
+    ``_x<index>``.
+    """
+
+    _FEATURE_COMMENT = re.compile(r"^c\s+(\d+)\$?\s+(\S.*?)\s*$")
+
+    def __init__(self):
         super().__init__()
+        self.n_variables = None
+        self.n_clauses = None
 
     def parse(self, path: str) -> None:
         with open(path, "r") as file:
-            lines = file.readlines()
+            self.parse_string(file.read())
 
-        lines = [line.replace("\n", "") for line in lines]
+    def parse_string(self, text: str) -> None:
+        self._index_to_feature, self._feature_to_index = dict(), dict()
+        self._clauses = []
 
-        for line in lines:
-            # TODO replace with pattern matching for Python >= 3.10
-            start = line[0]
+        current: List[int] = []
+        for raw in text.splitlines():
+            line = raw.strip()
+            if line == "" or line.startswith("%"):
+                continue
 
-            if start == "c":  # c = comment, used for specifying a feature
-                line = line.split(" ")
-                index = int(line[1])
-                feature_name = line[2]
+            if line.startswith("c"):
+                match = self._FEATURE_COMMENT.match(line)
+                if match is not None:
+                    self._register(int(match.group(1)), match.group(2))
+                continue
 
-                # record
-                self._index_to_feature[index] = feature_name
-                self._feature_to_index[feature_name] = index
+            if line.startswith("p"):
+                tokens = line.split()
+                if len(tokens) >= 4:
+                    self.n_variables = int(tokens[2])
+                    self.n_clauses = int(tokens[3])
+                continue
 
-            elif start == "p":  # p = .. used for validation only
-                pass
+            # clause line; a clause may span multiple lines and a line may
+            # contain multiple clauses, each terminated by 0
+            for token in line.split():
+                literal = int(token)
+                if literal == 0:
+                    self._clauses.append(current)
+                    current = []
+                else:
+                    current.append(literal)
 
-            else:  # any other line should specify a clause
-                line = line.split(" ")
-                assert int(line[-1]) == 0
+        if len(current) > 0:
+            # tolerate a missing trailing 0
+            self._clauses.append(current)
 
-                clause = [int(literal) for literal in line[:-1]]
-                self._clauses.append(clause)
+        # name unnamed variables
+        indexes = {abs(lit) for clause in self._clauses for lit in clause}
+        if self.n_variables is not None:
+            indexes |= set(range(1, self.n_variables + 1))
+        for index in sorted(indexes):
+            if index not in self._index_to_feature:
+                self._register(index, "_x{}".format(index))
+
+        if self.n_clauses is not None and self.n_clauses != len(self._clauses):
+            logging.warning(
+                "DIMACS header declares %d clauses, but %d were found.",
+                self.n_clauses,
+                len(self._clauses),
+            )
 
 
 class SPLCParser(Parser):
-    def __init__(
-        self,
-    ):
+    """
+    Parser for SPL Conqueror variability models (XML). Only binary options are
+    translated into clauses; numeric options are recorded in
+    ``self.numeric_options``. Boolean constraints are supported if they are
+    conjunctions of clauses written with ``|`` (or), ``&`` (and), ``!``/``-``
+    (not), and ``=>`` (implication between two literals).
+    """
+
+    def __init__(self):
         super().__init__()
         here = pathlib.Path(__file__).parent.resolve()
-        self.schema = xmlschema.XMLSchema(str(here) + "/resources/splc.xsd")
+        self.schema = xmlschema.XMLSchema(str(here / "resources" / "splc.xsd"))
+        self.numeric_options: Dict[str, dict] = {}
 
-    def _alternative_group(self, mutex_options):
-        constraints = []
-        for a, b in itertools.combinations(mutex_options, 2):
-            constraints.append([-1 * a, -1 * b])
-        return constraints
+    @staticmethod
+    def _as_list(value) -> list:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        return [value]
 
-    def _or_group(self, options):
-        constraints = [o for o in options]
-        return constraints
+    @classmethod
+    def _option_list(cls, node) -> List[str]:
+        if not isinstance(node, dict):
+            return []
+        return [o.strip() for o in cls._as_list(node.get("option")) if o and o.strip()]
 
-    def _parent(self, child, parent):
-        return [-1 * child, parent]
+    def _parse_constraint(self, constraint: str) -> List[List[int]]:
+        clauses = []
+        for conjunct in constraint.split("&"):
+            conjunct = conjunct.strip().strip("()").strip()
+            if conjunct == "":
+                continue
+            if "=>" in conjunct:
+                lhs, rhs = conjunct.split("=>", 1)
+                conjunct = "!{} | {}".format(lhs.strip(), rhs.strip())
 
-    def _mandatory(self, option):
-        return [option]
+            clause = []
+            for literal in conjunct.split("|"):
+                literal = literal.strip().strip("()").strip()
+                negated = False
+                while literal.startswith(("!", "-")):
+                    negated = not negated
+                    literal = literal[1:].strip()
+                if literal not in self._feature_to_index:
+                    raise ValueError(
+                        "Unknown option '{}' in constraint '{}'".format(
+                            literal, constraint
+                        )
+                    )
+                index = self._feature_to_index[literal]
+                clause.append(-index if negated else index)
+            clauses.append(clause)
+        return clauses
 
     def parse(self, path: str) -> None:
         xml = self.schema.to_dict(path)
 
-        constraints = []
-        literals = []
-
+        self._index_to_feature, self._feature_to_index = dict(), dict()
         self._clauses = []
+        self.numeric_options = {}
 
-        self.options = {}
+        options = self._as_list(
+            (xml.get("binaryOptions") or {}).get("configurationOption")
+        )
+        for index, option in enumerate(options):
+            self._register(index + 1, option["name"].strip())
 
-        mutex_groups = []
-        for index, option in enumerate(xml["binaryOptions"]["configurationOption"]):
-            name = option["name"]
-            self.options[name] = index + 1
+        idx = self._feature_to_index
+        seen_groups = set()
+        for option in options:
+            name = option["name"].strip()
+            parent = (option.get("parent") or "").strip()
+            optional = str(option.get("optional", "False")).strip().lower() == "true"
 
-        for option in xml["binaryOptions"]["configurationOption"]:
-            name = option["name"]
-            parent = option["parent"]
-            literals.append(z3.Bool(name))
+            excluded = self._option_list(option.get("excludedOptions"))
 
-            if parent.strip() != "":
-                self._clauses.append(
-                    self.dimacs_create_parent_constraint(
-                        self.options[name], self.options[parent]
-                    )
-                )
+            if parent != "":
+                # child implies parent
+                self._clauses.append([-idx[name], idx[parent]])
+                if not optional and not excluded:
+                    # mandatory child: parent implies child (non-optional
+                    # options with exclusions form alternative groups instead)
+                    self._clauses.append([-idx[parent], idx[name]])
+            elif not optional:
+                # mandatory top-level option (e.g. root)
+                self._clauses.append([idx[name]])
 
-            # check if option is optional
-            is_optional = option["optional"]
-            if not is_optional:
-                self._clauses.append(self.options[name])
+            for implied in self._option_list(option.get("impliedOptions")):
+                self._clauses.append([-idx[name], idx[implied]])
 
-            if option["excludedOptions"] is not None:
-                mutexes = option["excludedOptions"]["options"]
+            if excluded:
+                group = tuple(sorted(set(excluded + [name])))
+                if group not in seen_groups:
+                    seen_groups.add(group)
+                    for a, b in itertools.combinations(group, 2):
+                        self._clauses.append([-idx[a], -idx[b]])
+                    # in SPL Conqueror, a non-optional option that excludes its
+                    # siblings forms an alternative group: one must be chosen
+                    if not optional and parent != "":
+                        self._clauses.append([-idx[parent]] + [idx[o] for o in group])
 
-                self._clauses.append(
-                    self.dimacs_create_alternative_group(
-                        [self.options[i] for i in mutexes]
-                    )
-                )
+        for option in self._as_list(
+            (xml.get("numericOptions") or {}).get("configurationOption")
+        ):
+            self.numeric_options[option["name"].strip()] = option
+
+        constraints = (xml.get("booleanConstraints") or {}).get("constraint")
+        for constraint in self._as_list(constraints):
+            if constraint and constraint.strip():
+                self._clauses.extend(self._parse_constraint(constraint))
 
 
 if __name__ == "__main__":
