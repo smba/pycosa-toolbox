@@ -1,14 +1,13 @@
-name: Run tests
+# Runs the test suite against all supported Python versions and validates
+# that the package builds and installs cleanly.
+
+name: tests
 
 on:
   push:
-    branches:
-      - main
-      - dev
+    branches: [main, dev]
   pull_request:
-    branches:
-      - main
-      - dev
+    branches: [main, dev]
 
 jobs:
   test:
@@ -20,8 +19,7 @@ jobs:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -32,3 +30,21 @@ jobs:
           python -m pip install ".[test]"
       - name: Run tests
         run: python -m pytest -q
+
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/

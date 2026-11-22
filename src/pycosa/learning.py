@@ -1,3 +1,12 @@
+"""
+Identification of influential and interacting options from group-wise
+elementary-effect measurements.
+
+:class:`GroupLearner` tracks for each option how often measurements of
+groups containing it indicate an influential or an interacting option, and
+proposes new groups to measure next.
+"""
+
 import logging
 from typing import Sequence
 
@@ -8,15 +17,36 @@ from pycosa.lib import OptionExhaustionError
 
 
 class GroupLearner:
+    """
+    Classifies options as influential and/or interacting based on
+    group-wise elementary-effect measurements.
+
+    Options are always measured in groups: for a group, the performance of
+    configurations with all group options enabled is compared against the
+    performance of pair-wise configurations with all group options
+    disabled (see :class:`pycosa.sampling.GroupSampler`). Whether a group
+    counts as influential or interacting follows the thresholds ``t1``
+    (relative performance difference) and ``t2`` (relative spread of the
+    differences), akin to elementary effects / Morris screening.
+    """
+
     def __init__(self, options, t1: float = 0.5, t2: float = 0.1, seed=None):
         """
         Keeps track of which options are classified as influential and/or
         interacting, based on group-wise elementary effect measurements.
 
-        @param options: List of option names
-        @param t1: Relative threshold for a performance difference to count as relevant
-        @param t2: Relative threshold for the spread of performance differences
-        @param seed: Seed for suggesting option groups
+        Parameters
+        ----------
+        options : iterable of str
+            Names of the options under investigation.
+        t1 : float, optional
+            Relative threshold for a performance difference to count as
+            relevant (default 0.5).
+        t2 : float, optional
+            Relative threshold for the spread of performance differences
+            (default 0.1).
+        seed : int, optional
+            Seed for reproducible group suggestions.
         """
         self.rng = np.random.default_rng(seed)
         self.t1 = t1
@@ -35,11 +65,19 @@ class GroupLearner:
         Decides for a given set of options and measurements, whether the set of options
         is influential and/or interacting with further features.
 
-        @param group: List of option names
-        @param perf_en: Performance of configurations with options of group enabled
-        @param perf_dis: Performance of configurations with options of group disabled
+        Parameters
+        ----------
+        group : sequence of str
+            Options that were measured together.
+        perf_en : array-like
+            Performance of configurations with the group options enabled.
+        perf_dis : array-like
+            Performance of the matching configurations with the group
+            options disabled; must have the same length as ``perf_en``.
 
-        @return: None
+        Returns
+        -------
+        None
         """
 
         perf_en = np.asarray(perf_en, dtype=float)
@@ -101,7 +139,10 @@ class GroupLearner:
         """
         Keep track of options that are classified as influential.
 
-        @param List of options to keep track of.
+        Parameters
+        ----------
+        options : sequence of str
+            Options to keep track of.
         """
         for option in options:
             self.records[option]["influential"] += 1
@@ -110,16 +151,23 @@ class GroupLearner:
         """
         Keep track of options that are classified as interacting.
 
-        @param List of options to keep track of.
+        Parameters
+        ----------
+        options : sequence of str
+            Options to keep track of.
         """
         for option in options:
             self.records[option]["interacting"] += 1
 
     def __drop_options(self, options: Sequence[str]) -> None:
         """
-        Drop passed options from pool for re-grouping.
+        Drops the given options, which appear non-influential, from the
+        pool of options to be regrouped.
 
-        @param List of options to drop
+        Parameters
+        ----------
+        options : sequence of str
+            Options to drop.
         """
         self.options = self.options - set(options)
 
@@ -127,8 +175,16 @@ class GroupLearner:
         """
         Suggests a number of options to be included in a new group.
 
-        @param size: Number of options to select for group (default is 5)
-        @return: Options to include in
+        Parameters
+        ----------
+        size : int, optional
+            Number of options to include in the group (default 5).
+
+        Returns
+        -------
+        numpy.ndarray
+            The suggested options. If no options remain, an
+            :class:`pycosa.lib.OptionExhaustionError` is raised.
         """
 
         # Either pick all or a specified number of options for group
@@ -150,7 +206,8 @@ class GroupLearner:
 
         Returns
         -------
-        @return: pd.DataFrame with statistics
+        pd.DataFrame
+            Counts of influential/interacting classifications per option.
         """
         df = pd.DataFrame.from_dict(self.records, orient="index")
         df.index.name = "option"

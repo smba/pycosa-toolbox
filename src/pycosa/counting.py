@@ -49,6 +49,7 @@ def _propagate(clauses: Formula) -> Tuple[Optional[Formula], List[int]]:
 
 
 def _variables(clauses: Iterable[Clause]) -> FrozenSet[int]:
+    """Returns the set of variables occurring in the given clauses."""
     return frozenset(abs(lit) for clause in clauses for lit in clause)
 
 
@@ -57,6 +58,7 @@ def _components(clauses: Formula) -> List[Formula]:
     parent: Dict[int, int] = {}
 
     def find(x):
+        """Returns the representative of ``x`` (with path halving)."""
         while parent[x] != x:
             parent[x] = parent[parent[x]]
             x = parent[x]
@@ -107,6 +109,7 @@ class ModelCounter:
         clauses: Sequence[Sequence[int]],
         variables: Optional[Iterable[int]] = None,
     ):
+        """Normalizes the clauses and prepares the component cache."""
         self.formula: Formula = frozenset(
             tuple(sorted(set(int(lit) for lit in clause))) for clause in clauses
         )
@@ -133,6 +136,8 @@ class ModelCounter:
     # ------------------------------------------------------------------ #
 
     def _count(self, clauses: Optional[Formula], variables: FrozenSet[int]) -> int:
+        """Counts the solutions of ``clauses`` over ``variables``, split by
+        connected component; free variables contribute a factor of two each."""
         if clauses is None:
             return 0
         clauses, implied = _propagate(clauses)
@@ -152,6 +157,8 @@ class ModelCounter:
         return result
 
     def _count_component(self, component: Formula) -> int:
+        """Counts one connected component by case distinction on a branch
+        variable, with results cached per (sub-)formula."""
         cached = self._cache.get(component)
         if cached is not None:
             return cached
@@ -195,6 +202,10 @@ class ModelCounter:
         rng: random.Random,
         out: Dict[int, bool],
     ) -> None:
+        """Writes a uniformly drawn solution of ``clauses`` into ``out``:
+        implied literals are fixed, free variables are flipped by chance,
+        and branch variables are chosen with probability proportional to
+        the number of solutions below each branch."""
         clauses, implied = _propagate(clauses)
         assert clauses is not None, "sampling from an unsatisfiable formula"
         for lit in implied:

@@ -1,9 +1,40 @@
+"""
+Backwards-compatible readers for third-party data formats.
+
+Currently only SPL Conqueror measurement files (XML) are supported.
+"""
+
 import xml.etree.ElementTree as ET
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 
 def read_measurements(path, METRIC):
+    """
+    Reads an SPL Conqueror measurement file into a data frame.
+
+    The file must be XML with one ``<row>`` element per measurement.
+    Each row's entries must contain a column named ``Configuration``
+    (comma-separated list of the selected options) and one column
+    named after the performance metric of interest. If a measurement
+    consists of several comma-separated values, their median is used
+    as the performance value.
+
+    Parameters
+    ----------
+    path : str
+        Path to the measurement file.
+    METRIC : str
+        Name of the column that holds the performance values.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per measurement, with one boolean column per option
+        that occurs in any configuration, plus a column ``METRIC`` with
+        the (median) performance values.
+    """
     root = ET.parse(path).getroot()
 
     features = set([])

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Plotting utilities for comparing distributions of measurements, e.g., the
+performance of configurations with a group of options enabled vs. disabled.
+"""
 
 from typing import Optional, Tuple
 
@@ -9,6 +13,8 @@ from scipy.stats import gaussian_kde
 
 
 def _kde_curve(dist: np.ndarray, bandwidth: float, n_points: int = 256):
+    """Returns points of the kernel density estimate of ``dist`` as
+    ``(x, y)`` arrays."""
     dist = np.asarray(dist, dtype=float)
     lo, hi = dist.min(), dist.max()
     if lo == hi:
